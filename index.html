@@ -3,174 +3,1721 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Hajime — Connection Test</title>
+<meta name="theme-color" content="#0e0e11">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hajime">
+<title>Hajime</title>
 <style>
-  :root{
-    --bg:#0e0e11; --card:#17171b; --line:#2a2a30; --text:#f2f2f4; --soft:#8b8b95;
-    --blue:#3b82f6; --green:#22c55e; --red:#ef4444; --yellow:#eab308;
-    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5}
-  .wrap{max-width:30rem;margin:0 auto;padding:1.25rem 1rem 3rem;display:flex;flex-direction:column;gap:.9rem}
-  h1{font-size:1.15rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
-  h1 span{color:var(--blue)}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.9rem;display:flex;flex-direction:column;gap:.6rem}
-  label{font-size:.72rem;font-weight:700;color:var(--soft);text-transform:uppercase;letter-spacing:.05em}
-  input{width:100%;background:#222228;border:1px solid var(--line);color:var(--text);padding:.7rem .75rem;border-radius:9px;font-size:.92rem;font-family:inherit}
-  input:focus{outline:2px solid var(--blue);outline-offset:-1px}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
-  .row3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:.6rem}
-  button{border:none;border-radius:10px;padding:.85rem;font-size:.9rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;color:#fff;background:var(--blue)}
-  button:active{transform:scale(.98)}
-  button:disabled{opacity:.5}
-  .b2{background:#2e2e36}
-  .b3{background:var(--green);color:#04130a}
-  #status{border-radius:12px;padding:.9rem;font-size:.92rem;display:none}
-  #status.ok{display:block;background:rgba(34,197,94,.12);border:1px solid var(--green)}
-  #status.err{display:block;background:rgba(239,68,68,.12);border:1px solid var(--red)}
-  #status.wait{display:block;background:rgba(234,179,8,.1);border:1px solid var(--yellow)}
-  #status .t{font-weight:800;margin-bottom:.25rem}
-  #status .hint{direction:rtl;text-align:right;margin-top:.5rem;color:#e5e5e8;font-size:.9rem;line-height:1.7}
-  .tbl{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-size:.82rem}
-  th,td{padding:.45rem .4rem;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
-  th{color:var(--soft);font-weight:700;font-size:.7rem;text-transform:uppercase}
-  .muted{color:var(--soft);font-size:.8rem}
+:root{--bg:#0e0e11;--card:#17171b;--card2:#1f1f25;--line:#2a2a32;--text:#f2f2f4;--muted:#a0a0aa;--dim:#6b6b75;
+--blue:#3b82f6;--green:#22c55e;--red:#ef4444;--amber:#f59e0b;--yellow:#eab308;--gray:#8b8b95}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans Arabic",sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;touch-action:manipulation}
+button:disabled{opacity:.35;cursor:default}
+.hdr{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;background:rgba(14,14,17,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.hbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:22px;line-height:1}
+.htitle{flex:1;font-weight:800;letter-spacing:.08em;text-transform:uppercase;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wrap{max-width:560px;margin:0 auto;padding:12px 14px calc(40px + env(safe-area-inset-bottom))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:0 0 10px;display:flex;align-items:center;gap:10px}
+.card[data-a]{cursor:pointer}
+.grow{flex:1;min-width:0}
+.ttl{font-weight:700}
+.sub{color:var(--muted);font-size:13px;margin-top:2px}
+.muted{color:var(--muted)}
+.dim{color:var(--dim)}
+.num{min-width:26px;height:26px;border-radius:8px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.st-done{border-left:4px solid var(--green)}
+.st-partial{border-left:4px solid var(--gray)}
+.st-skip{border-left:4px solid var(--red)}
+.st-none{border-left:4px solid transparent}
+.dot{width:10px;height:10px;border-radius:50%;border:none;flex:none}
+.dot.st-done{background:var(--green)}.dot.st-partial{background:var(--gray)}.dot.st-skip{background:var(--red)}.dot.st-none{background:var(--line)}
+.pill{border:1px solid var(--line);background:var(--card2);border-radius:999px;padding:6px 11px;font-size:12px;font-weight:700;letter-spacing:.04em;white-space:nowrap}
+.pill.red{color:#fca5a5;border-color:#5b2323}
+.pill.blue{background:var(--blue);border-color:var(--blue)}
+.sq{width:34px;height:34px;flex:none;border-radius:9px;border:1px solid var(--line);background:var(--card2);font-size:14px;display:inline-flex;align-items:center;justify-content:center}
+.sq.red{color:#fca5a5}
+.btn{display:block;width:100%;border:none;border-radius:12px;padding:14px;font-weight:800;letter-spacing:.06em;background:var(--blue);color:#fff;margin:8px 0}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+.btn.danger{background:transparent;border:1px solid #5b2323;color:#fca5a5}
+.btn.green{background:var(--green);color:#06210f}
+.btn.sm{padding:10px;font-size:13px;margin:6px 0 0}
+.row{display:flex;gap:8px;align-items:center}
+.row>.btn{margin:8px 0}
+.weekbar{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.nav{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-size:22px}
+.wsel,.in,.ta,select.in{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 12px;width:100%;outline:none}
+.wsel{flex:1;height:44px;font-weight:800;letter-spacing:.06em;text-align:center;text-align-last:center}
+.in:focus,.ta:focus{border-color:var(--blue)}
+.ta{min-height:110px;resize:vertical}
+.meso-tag{color:var(--muted);font-size:12px;text-align:center;margin:0 0 12px;letter-spacing:.05em}
+.rowbar{display:flex;justify-content:space-between;align-items:center;margin:2px 0 10px}
+.lbl{font-size:11px;color:var(--muted);letter-spacing:.1em;font-weight:700;text-transform:uppercase;margin:14px 0 6px}
+.empty{text-align:center;padding:50px 20px;color:var(--muted)}
+.empty .big{font-size:40px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px}
+.cnote{background:#0f2342;border:1px solid #1e3a66;border-radius:12px;padding:10px 12px;margin-bottom:10px;white-space:pre-wrap}
+.cnote b{display:block;font-size:11px;letter-spacing:.1em;color:#93c5fd;margin-bottom:3px}
+.skipbox{background:#2a1313;border:1px solid #5b2323;border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.exhead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.exhead .ttl{font-size:19px;font-weight:800;flex:1}
+.info2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.info2 div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.info2 small{display:block;font-size:10px;color:var(--muted);letter-spacing:.12em;font-weight:700}
+.info2 b{font-size:18px}
+.chips{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;padding-bottom:2px}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 10px;font-size:13px;font-weight:700;min-width:58px;text-align:center}
+.chip small{display:block;font-size:10px;color:var(--muted);font-weight:700}
+.chip.on{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue) inset}
+.chip.c-done{background:#0f2a18}.chip.c-skip{background:#2a1313}.chip.c-partial{background:#26262c}
+.acts{display:flex;gap:8px;margin-bottom:10px}
+.acts .pill{flex:1;padding:9px 6px}
+.kgd{background:var(--card);border:1px solid var(--line);border-radius:14px;height:74px;display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:800;margin-bottom:8px}
+.kgd.ph{color:var(--dim)}
+.kgd.on{border-color:var(--blue)}
+.kg2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kg2 .kgd{font-size:32px;flex-direction:column;cursor:pointer}
+.kg2 .kgd small{font-size:10px;color:var(--muted);letter-spacing:.12em}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pad button{height:56px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-size:22px;font-weight:700}
+.reps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.reps button{height:54px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-size:20px;font-weight:800}
+.reps button.tg{border-color:#1e3a66;background:#0f2342}
+.reps button.on{background:var(--blue);border-color:var(--blue)}
+.err{color:#fca5a5;font-size:13px;min-height:18px;margin:6px 2px}
+.prev{margin-top:14px}
+.prev .line{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line);font-size:14px}
+.prev .line:last-child{border-bottom:none}
+.sync{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 10px;font-size:11px;font-weight:800;letter-spacing:.06em;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.sync i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.s-ok i{background:var(--green)}.s-pend i{background:var(--amber)}.s-off i{background:var(--red)}.s-halt i{background:var(--red)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.modal[hidden]{display:none}
+.sheet{background:#141418;border:1px solid var(--line);border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:88vh;overflow:auto;padding:16px 16px calc(18px + env(safe-area-inset-bottom))}
+.sheet h3{margin:2px 0 10px;font-size:15px;letter-spacing:.08em;text-transform:uppercase}
+.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:#26262d;border:1px solid var(--line);padding:10px 16px;border-radius:12px;opacity:0;pointer-events:none;transition:.25s;z-index:30;max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.spin{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:sp 1s linear infinite;margin:60px auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+.chipline{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.tag{font-size:11px;font-weight:800;letter-spacing:.05em;border-radius:6px;padding:3px 7px;background:var(--card2);color:var(--muted)}
+.tag.green{background:#0f2a18;color:#86efac}.tag.red{background:#2a1313;color:#fca5a5}.tag.amber{background:#2d220c;color:#fcd34d}.tag.blue{background:#0f2342;color:#93c5fd}
+.edday{display:block}
+.edday-h{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+.edday-h .in{font-weight:800}
+.slot{border-top:1px solid var(--line);padding:10px 0}
+.slot-h{display:flex;gap:6px;align-items:center}
+.exbtn{flex:1;min-width:0;text-align:left;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot-b{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:none;background:var(--card2);padding:8px 10px;font-weight:700;font-size:13px;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:none}
+.seg button.on{background:var(--blue)}
+.in.reps{width:74px;padding:8px}
+.in.reps.on{border-color:var(--blue)}
+.in.note{padding:8px 10px;font-size:14px}
+.x{color:var(--muted)}
+.info{font-size:12px;color:#93c5fd;margin:-2px 0 6px}
+.warn{font-size:12px;color:#fcd34d;margin:-2px 0 6px}
+.list-item{display:flex;align-items:center;gap:8px;padding:11px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.list-item .grow{min-width:0}
+.grp{font-size:11px;color:var(--muted);letter-spacing:.1em;font-weight:800;margin:14px 0 4px}
+.check{display:flex;gap:10px;align-items:center;margin:10px 0}
+.check input{width:20px;height:20px}
+.savebar{font-size:12px;color:var(--muted);text-align:center;margin:4px 0 10px}
+.savebar.bad{color:#fca5a5}
+.linkbox{font:12px/1.4 ui-monospace,Menlo,monospace;word-break:break-all;color:var(--muted);margin:6px 0}
+.review .it{border-top:1px solid var(--line);padding:10px 0}
+.review .it:first-of-type{border-top:none}
+.trsel{margin-bottom:10px;font-weight:800}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1><span>Hajime</span> · Connection Test</h1>
-
-  <div class="card">
-    <label for="url">Script URL (ends with /exec)</label>
-    <input id="url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off" autocapitalize="off" spellcheck="false">
-    <label for="key">Trainee key</label>
-    <input id="key" value="test01" autocomplete="off" autocapitalize="off" spellcheck="false">
-  </div>
-
-  <button id="bPing">1 · Ping</button>
-
-  <div class="card">
-    <div class="row3">
-      <div><label for="ex">Exercise</label><input id="ex" value="Test Press"></div>
-      <div><label for="kg">KG</label><input id="kg" value="30-40" inputmode="decimal"></div>
-      <div><label for="reps">Reps</label><input id="reps" value="10" inputmode="numeric"></div>
-    </div>
-    <button id="bSave" class="b3">2 · Save test set</button>
-    <p class="muted">KG defaults to "30-40" on purpose — it checks that dual (Prime) weights are stored as text, not turned into a date.</p>
-  </div>
-
-  <button id="bRead" class="b2">3 · Read my log</button>
-
-  <div id="status"></div>
-  <div class="card tbl" id="logCard" style="display:none"><table id="log"></table></div>
-</div>
+<header class="hdr">
+  <button class="hbtn" id="hBack" data-a="nav.back" hidden aria-label="Back">‹</button>
+  <div class="htitle" id="hTitle">HAJIME</div>
+  <div id="hRight"></div>
+</header>
+<main class="wrap" id="main"><div class="spin"></div></main>
+<div class="modal" id="modal" hidden><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
 
 <script>
-  const $ = id => document.getElementById(id);
-  const store = { get(k){ try{return localStorage.getItem(k)}catch(_){return null} }, set(k,v){ try{localStorage.setItem(k,v)}catch(_){} } };
-  $('url').value = store.get('hj_test_url') || '';
-  $('url').addEventListener('change', () => store.set('hj_test_url', $('url').value.trim()));
-  let setCounter = 0;
+'use strict';
+/* ======================================================================
+   CONFIG — paste your Apps Script web app URL (ends with /exec)
+   ====================================================================== */
+const CONFIG = {
+  API_URL: 'https://script.google.com/macros/s/AKfycbxlP9x39iKuCabCvw3GepF1hOULHQilwfFH2Vei1nWUW1NwohGMgrkARf1cWAr4Hd3BRw/exec'
+};
 
-  function show(kind, title, detail, hint) {
-    const s = $('status');
-    s.className = kind;
-    s.innerHTML = '';
-    const t = document.createElement('div'); t.className = 't'; t.textContent = title; s.appendChild(t);
-    if (detail) { const d = document.createElement('div'); d.className = 'muted'; d.textContent = detail; s.appendChild(d); }
-    if (hint) { const h = document.createElement('div'); h.className = 'hint'; h.textContent = hint; s.appendChild(h); }
+const MAX_SETS = 3;
+const REP_RANGES = ['6-8', '8-10', '10-12'];
+
+/* ======================================================================
+   UTILITIES
+   ====================================================================== */
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const rand = (n) => { const a = 'abcdefghijklmnopqrstuvwxyz0123456789'; let s = ''; for (let i = 0; i < n; i++) s += a[Math.floor(Math.random() * a.length)]; return s; };
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (_) { return false; } }
+};
+class AppError extends Error { constructor(code, msg) { super(msg); this.code = code; } }
+
+let toastTimer = null;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+function main(html, keepScroll) {
+  const m = $('#main');
+  m.innerHTML = html;
+  if (!keepScroll) window.scrollTo(0, 0);
+}
+
+function hdr(o) {
+  $('#hTitle').textContent = o.title || 'HAJIME';
+  $('#hBack').hidden = !o.back;
+  $('#hRight').innerHTML = o.right || '';
+}
+
+function openModal(html) { $('#sheet').innerHTML = html; $('#modal').hidden = false; }
+function closeModal() { $('#modal').hidden = true; $('#sheet').innerHTML = ''; }
+function modalOpen() { return !$('#modal').hidden; }
+
+function confirmBox(title, text, okLabel, danger) {
+  return new Promise((resolve) => {
+    Modal.resolve = resolve;
+    openModal(`<h3>${esc(title)}</h3><p class="muted">${esc(text)}</p>
+      <button class="btn ${danger ? 'danger' : ''}" data-a="modal.yes">${esc(okLabel || 'OK')}</button>
+      <button class="btn ghost" data-a="modal.no">CANCEL</button>`);
+  });
+}
+
+function askReason(title) {
+  return new Promise((resolve) => {
+    Modal.resolve = resolve;
+    openModal(`<h3>${esc(title)}</h3>
+      <textarea class="ta" id="reasonTa" maxlength="300" placeholder="Why? (required)"></textarea>
+      <div class="err" id="reasonErr"></div>
+      <button class="btn" data-a="modal.reason">CONFIRM</button>
+      <button class="btn ghost" data-a="modal.no">CANCEL</button>`);
+    setTimeout(() => { const ta = $('#reasonTa'); if (ta) ta.focus(); }, 60);
+  });
+}
+
+const Modal = { resolve: null };
+function modalDone(v) { const r = Modal.resolve; Modal.resolve = null; closeModal(); if (r) r(v); }
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (_) { /* fallback below */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch (_) { return false; }
+}
+
+function ago(iso) {
+  if (!iso) return 'never';
+  const d = (Date.now() - new Date(iso).getTime()) / 86400000;
+  if (!(d >= 0)) return 'never';
+  if (d < 1) return 'today';
+  if (d < 2) return 'yesterday';
+  return Math.floor(d) + ' days ago';
+}
+
+/* ======================================================================
+   API
+   ====================================================================== */
+async function api(params, body) {
+  if (!CONFIG.API_URL || CONFIG.API_URL.indexOf('PASTE') >= 0) throw new AppError('config', 'App is not connected yet (API_URL).');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 30000);
+  try {
+    const url = CONFIG.API_URL + (params ? '?' + new URLSearchParams(params).toString() : '');
+    const res = await fetch(url, body ? { method: 'POST', body: JSON.stringify(body), signal: ctrl.signal } : { signal: ctrl.signal });
+    const text = await res.text();
+    if (/^\s*</.test(text)) throw new AppError('html', 'Server returned a page instead of data. Check the deployment access.');
+    try { return JSON.parse(text); } catch (_) { throw new AppError('parse', 'Unexpected server response.'); }
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw new AppError('network', 'No connection.');
+  } finally {
+    clearTimeout(timer);
   }
+}
 
-  function getUrl() {
-    const u = $('url').value.trim();
-    store.set('hj_test_url', u);
-    if (!u) { show('err', '✗ No URL', null, 'الصق رابط السكربت أول. تلقاه بعد Deploy → Web app.'); return null; }
-    if (/\/dev(\?|$)/.test(u)) { show('err', '✗ Wrong URL', u, 'هذا رابط /dev — يشتغل لك أنت بس. استخدم الرابط اللي ينتهي بـ /exec.'); return null; }
-    if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/.test(u)) { show('err', '✗ URL looks wrong', u, 'الرابط لازم يبدأ بـ https://script.google.com/macros/s/ وينتهي بـ /exec'); return null; }
-    return u;
-  }
+/* ======================================================================
+   SHARED DATA MODEL (same rules as the sheet)
+   ====================================================================== */
+const ek = (m, w, s) => m + '|' + w + '|' + s;
+const sk = (m, w, s, n) => m + '|' + w + '|' + s + '|' + n;
+const isSkip = (st) => st === 'skip' || st === 'skipex' || st === 'skipday';
 
-  function diagnose(err, text) {
-    if (text && text.trim().startsWith('<')) {
-      return 'قوقل رجّع صفحة بدل البيانات. غالبًا صلاحية الوصول مو "Anyone". روح Deploy → Manage deployments → عدّل → Who has access = Anyone، وبعدين New version.';
+function normMeso(m) { return { id: String(m.id), num: +m.num || 0, title: m.title || '', weeks: +m.weeks || 0, days: Array.isArray(m.days) ? m.days : [], status: m.status || '', startWeek: +m.startWeek || 0 }; }
+function normPlan(p) { return { meso: p.meso, slot: p.slot, day: p.day, pos: +p.pos || 0, fromWeek: +p.fromWeek || 1, ex: p.ex || '', sets: +p.sets || 0, reps: String(p.reps || ''), note: p.note || '' }; }
+function normEntry(e) { return { meso: e.meso, week: +e.week, day: e.day || '', slot: e.slot, ex: e.ex || '', order: +e.order || 0, status: e.status || '', reason: e.reason || '', tnote: e.tnote || '', cnote: e.cnote || '' }; }
+function normSet(s) { return { meso: s.meso, week: +s.week, slot: s.slot, n: +s.n, ex: s.ex || '', kg: String(s.kg || ''), reps: String(s.reps || ''), status: s.status || '', reason: s.reason || '' }; }
+
+function indexData(raw) {
+  const D = { trainee: raw.trainee || {}, exMap: {}, planByMeso: {}, entries: {}, sets: {} };
+  (raw.exercises || []).forEach((x) => { D.exMap[x.id] = x; });
+  D.mesosAll = (raw.mesos || []).map(normMeso);
+  D.mesoById = {};
+  D.mesosAll.forEach((m) => { D.mesoById[m.id] = m; });
+  D.mesos = D.mesosAll.filter((m) => m.status === 'published').sort((a, b) => a.startWeek - b.startWeek);
+  D.drafts = D.mesosAll.filter((m) => m.status === 'draft').sort((a, b) => a.num - b.num);
+  (raw.plan || []).forEach((p) => { const r = normPlan(p); (D.planByMeso[r.meso] = D.planByMeso[r.meso] || []).push(r); });
+  (raw.entries || []).forEach((e) => { const r = normEntry(e); D.entries[ek(r.meso, r.week, r.slot)] = r; });
+  (raw.sets || []).forEach((s) => { const r = normSet(s); D.sets[sk(r.meso, r.week, r.slot, r.n)] = r; });
+  D.weeks = [];
+  D.mesos.forEach((m) => { for (let w = 1; w <= m.weeks; w++) D.weeks.push({ meso: m.id, w, g: m.startWeek + w - 1 }); });
+  return D;
+}
+
+function exInfo(D, id) { return D.exMap[id] || { id, name: id || '—', video: '', prime: false, muscle: '' }; }
+function entryOf(D, m, w, slot) { return D.entries[ek(m, w, slot)] || null; }
+function setOf(D, m, w, slot, n) { return D.sets[sk(m, w, slot, n)] || null; }
+function entryHasData(e) { return !!(e && (e.status || e.tnote || e.order)); }
+function setHasData(s) { return !!(s && (s.kg || s.reps || s.status)); }
+
+function slotHasLogs(D, m, w, slot) {
+  if (entryHasData(entryOf(D, m, w, slot))) return true;
+  for (let n = 1; n <= MAX_SETS; n++) if (setHasData(setOf(D, m, w, slot, n))) return true;
+  return false;
+}
+function loggedEx(D, m, w, slot) {
+  for (let n = 1; n <= MAX_SETS; n++) { const s = setOf(D, m, w, slot, n); if (s && s.ex) return s.ex; }
+  const e = entryOf(D, m, w, slot);
+  return e && e.ex ? e.ex : '';
+}
+
+/** Items of a day for a week, in the coach's planned order. */
+function resolveDay(D, m, w, dayId) {
+  const bySlot = {};
+  (D.planByMeso[m.id] || []).forEach((p) => { if (p.day === dayId) (bySlot[p.slot] = bySlot[p.slot] || []).push(p); });
+  const items = [];
+  Object.keys(bySlot).forEach((slot) => {
+    const vs = bySlot[slot].slice().sort((a, b) => a.fromWeek - b.fromWeek);
+    let act = null;
+    vs.forEach((v) => { if (v.fromWeek <= w) act = v; });
+    const withEx = vs.filter((v) => v.ex);
+    const lastEx = withEx[withEx.length - 1];
+    if (act && act.ex) items.push({ slot, day: dayId, ex: act.ex, sets: act.sets, reps: act.reps, note: act.note, pos: act.pos, from: act.fromWeek });
+    else if (lastEx && slotHasLogs(D, m.id, w, slot)) items.push({ slot, day: dayId, ex: loggedEx(D, m.id, w, slot) || lastEx.ex, sets: lastEx.sets, reps: lastEx.reps, note: '', pos: (act || lastEx).pos, from: 0, stale: true });
+  });
+  items.sort((a, b) => (a.pos - b.pos) || (a.slot < b.slot ? -1 : a.slot > b.slot ? 1 : 0));
+  items.forEach((it, i) => { it.planned = i + 1; });
+  return items;
+}
+
+/** Same items in the order the trainee chose (if they reordered). */
+function orderedItems(D, m, w, dayId) {
+  const items = resolveDay(D, m, w, dayId);
+  const ord = (it) => { const e = entryOf(D, m.id, w, it.slot); return e && e.order ? e.order : 100 + it.planned; };
+  if (!items.some((it) => { const e = entryOf(D, m.id, w, it.slot); return e && e.order; })) return items;
+  return items.slice().sort((a, b) => ord(a) - ord(b));
+}
+
+function setState(s) {
+  if (!s) return 'empty';
+  if (isSkip(s.status)) return 'skip';
+  if (s.kg && s.reps) return 'done';
+  if (s.kg || s.reps) return 'partial';
+  return 'empty';
+}
+function exStatus(D, mid, w, it) {
+  const e = entryOf(D, mid, w, it.slot);
+  if (e && (e.status === 'skip' || e.status === 'skipday')) return 'skip';
+  let done = 0, touched = 0;
+  for (let n = 1; n <= it.sets; n++) { const st = setState(setOf(D, mid, w, it.slot, n)); if (st === 'done') done++; if (st !== 'empty') touched++; }
+  if (done === it.sets) return 'done';
+  return touched ? 'partial' : 'none';
+}
+function exFinished(D, mid, w, it) {
+  const st = exStatus(D, mid, w, it);
+  if (st === 'done' || st === 'skip') return true;
+  for (let n = 1; n <= it.sets; n++) { const s = setState(setOf(D, mid, w, it.slot, n)); if (s !== 'done' && s !== 'skip') return false; }
+  return true;
+}
+function doneSets(D, mid, w, it) { let c = 0; for (let n = 1; n <= it.sets; n++) if (setState(setOf(D, mid, w, it.slot, n)) === 'done') c++; return c; }
+function dayStatus(D, m, w, dayId) {
+  const items = resolveDay(D, m, w, dayId);
+  if (!items.length) return 'none';
+  const sts = items.map((it) => exStatus(D, m.id, w, it));
+  if (sts.every((s) => s === 'done')) return 'done';
+  if (sts.every((s) => s === 'skip')) return 'skip';
+  return sts.some((s) => s !== 'none') ? 'partial' : 'none';
+}
+function weekActive(D, wk) {
+  const m = D.mesoById[wk.meso];
+  return m.days.some((d) => resolveDay(D, m, wk.w, d.id).some((it) => slotHasLogs(D, m.id, wk.w, it.slot)));
+}
+function weekFinished(D, wk) {
+  const m = D.mesoById[wk.meso];
+  return m.days.every((d) => resolveDay(D, m, wk.w, d.id).every((it) => exFinished(D, m.id, wk.w, it)));
+}
+function currentWeekIndex(D) {
+  if (!D.weeks.length) return 0;
+  let last = -1;
+  D.weeks.forEach((wk, i) => { if (weekActive(D, wk)) last = i; });
+  if (last < 0) { const latest = D.mesos[D.mesos.length - 1]; return Math.max(0, D.weeks.findIndex((wk) => wk.meso === latest.id)); }
+  if (weekFinished(D, D.weeks[last]) && last + 1 < D.weeks.length) return last + 1;
+  return last;
+}
+function mesoLabel(m) { return 'Mesocycle ' + m.num + (m.title ? ' · ' + m.title : ''); }
+
+/** Most recent earlier performance of the same exercise (same slot first). */
+function prevPerf(D, wi, it) {
+  const collect = (meso, w, slot) => {
+    const sets = [];
+    for (let n = 1; n <= MAX_SETS; n++) {
+      const s = setOf(D, meso, w, slot, n);
+      if (s && (!s.ex || s.ex === it.ex) && setState(s) !== 'empty') sets.push({ n, kg: s.kg, reps: s.reps, st: setState(s), reason: s.reason });
     }
-    if (err && /Failed to fetch|NetworkError|Load failed/i.test(String(err))) {
-      return 'الطلب ما وصل أصلًا. تأكد إن الرابط صحيح، وإن النشر نوعه Web app، والوصول Anyone. ولو عدّلت الكود بعد النشر، لازم تسوي New version.';
-    }
-    return null;
+    if (!sets.length) return null;
+    const e = entryOf(D, meso, w, slot) || {};
+    return { sets, tnote: e.tnote || '', cnote: e.cnote || '' };
+  };
+  const cur = D.weeks[wi];
+  const cm = D.mesoById[cur.meso];
+  const curDi = cm.days.findIndex((d) => d.id === it.day);
+  const curName = curDi >= 0 ? cm.days[curDi].name : '';
+  // other slots that logged this exercise in a week: prefer the same day name, then the latest day
+  const bestSlot = (meso, w, keep) => {
+    const m = D.mesoById[meso];
+    const dayOf = {};
+    (D.planByMeso[meso] || []).forEach((p) => { dayOf[p.slot] = p.day; });
+    const prefix = meso + '|' + w + '|';
+    const found = {};
+    Object.keys(D.sets).forEach((k) => { const s = D.sets[k]; if (k.indexOf(prefix) === 0 && s.ex === it.ex && setState(s) !== 'empty') found[s.slot] = true; });
+    const cands = Object.keys(found).map((slot) => {
+      const di = m.days.findIndex((d) => d.id === dayOf[slot]);
+      return { slot, di, name: di >= 0 ? m.days[di].name : '' };
+    }).filter(keep || (() => true));
+    cands.sort((a, b) => ((b.name === curName) - (a.name === curName)) || (b.di - a.di));
+    return cands.length ? cands[0].slot : '';
+  };
+  for (let i = wi - 1; i >= 0; i--) {
+    const wk = D.weeks[i];
+    const same = collect(wk.meso, wk.w, it.slot);
+    if (same) return Object.assign({ g: wk.g }, same);
+    const s = bestSlot(wk.meso, wk.w);
+    if (s) { const r = collect(wk.meso, wk.w, s); if (r) return Object.assign({ g: wk.g }, r); }
   }
+  // nothing in earlier weeks → an earlier day of this same week
+  const s = bestSlot(cur.meso, cur.w, (c) => c.di >= 0 && c.di < curDi && c.slot !== it.slot);
+  if (s) { const r = collect(cur.meso, cur.w, s); if (r) return Object.assign({ g: cur.g }, r); }
+  return null;
+}
 
-  async function call(method, params, body) {
-    const url = getUrl(); if (!url) return null;
-    const q = new URLSearchParams(params).toString();
-    const t0 = performance.now();
-    let text = '';
-    try {
-      const res = await fetch(url + (q ? '?' + q : ''), method === 'POST'
-        ? { method: 'POST', body: JSON.stringify(body) }   // text/plain → no CORS preflight
-        : { method: 'GET' });
-      text = await res.text();
-      const ms = Math.round(performance.now() - t0);
-      let data;
-      try { data = JSON.parse(text); }
-      catch (_) { show('err', '✗ Response is not JSON', text.slice(0, 120), diagnose(null, text)); return null; }
-      if (!data.ok) {
-        const hint = /setup/i.test(data.error) ? 'شغّل الدالة setup من محرر السكربت مرة وحدة، وبعدين جرب.' : null;
-        show('err', '✗ Script error', data.error, hint); return null;
+/** Latest coach note for this exercise up to this week (carries forward until changed). */
+function coachNoteFor(D, m, w, it) {
+  for (let x = w; x >= 1; x--) {
+    const e = entryOf(D, m.id, x, it.slot);
+    if (e && e.cnote && (!e.ex || e.ex === it.ex)) return e.cnote;
+  }
+  return it.note || '';
+}
+
+function firstEditableWeek(D, m, dayId) {
+  const slotDay = {};
+  (D.planByMeso[m.id] || []).forEach((p) => { slotDay[p.slot] = p.day; });
+  let last = 0;
+  Object.keys(D.entries).forEach((k) => { const e = D.entries[k]; if (e.meso === m.id && entryHasData(e) && (e.day || slotDay[e.slot]) === dayId) last = Math.max(last, e.week); });
+  Object.keys(D.sets).forEach((k) => { const s = D.sets[k]; if (s.meso === m.id && setHasData(s) && slotDay[s.slot] === dayId) last = Math.max(last, s.week); });
+  return last + 1;
+}
+
+function mesoHasLogs(D, mid) {
+  return Object.keys(D.entries).some((k) => D.entries[k].meso === mid && entryHasData(D.entries[k])) ||
+         Object.keys(D.sets).some((k) => D.sets[k].meso === mid && setHasData(D.sets[k]));
+}
+
+/* ======================================================================
+   NAVIGATION (phone back button works inside the app)
+   ====================================================================== */
+const Nav = {
+  depth: 0,
+  skip: 0,
+  onBack: null,
+  push() { this.depth++; history.pushState({ d: this.depth }, ''); },
+  back() { if (this.depth > 0) history.back(); else if (this.onBack) this.onBack(); },
+  silentBack() { if (this.depth > 0) { this.skip++; history.back(); } }
+};
+window.addEventListener('popstate', () => {
+  if (Nav.skip > 0) { Nav.skip--; Nav.depth = Math.max(0, Nav.depth - 1); return; }
+  if (modalOpen()) {
+    if (Modal.resolve) modalDone(null); else closeModal();
+    history.pushState({ d: Nav.depth }, '');
+    return;
+  }
+  Nav.depth = Math.max(0, Nav.depth - 1);
+  if (Nav.onBack) Nav.onBack();
+});
+
+/* ======================================================================
+   EVENTS
+   ====================================================================== */
+const ACT = {};
+const INP = {};
+const CHG = {};
+document.addEventListener('click', (ev) => {
+  const el = ev.target.closest('[data-a]');
+  if (!el || el.disabled) return;
+  if (el.id === 'modal') return;
+  const fn = ACT[el.dataset.a];
+  if (fn) { ev.preventDefault(); ev.stopPropagation(); fn(el.dataset, el); }
+});
+$('#modal').addEventListener('click', (ev) => { if (ev.target.id === 'modal') { if (Modal.resolve) modalDone(null); else closeModal(); } });
+document.addEventListener('input', (ev) => { const el = ev.target.closest('[data-in]'); if (el && INP[el.dataset.in]) INP[el.dataset.in](el); });
+document.addEventListener('change', (ev) => { const el = ev.target.closest('[data-ch]'); if (el && CHG[el.dataset.ch]) CHG[el.dataset.ch](el); });
+
+ACT['nav.back'] = () => Nav.back();
+ACT['modal.yes'] = () => modalDone(true);
+ACT['modal.no'] = () => modalDone(null);
+ACT['modal.reason'] = () => {
+  const v = ($('#reasonTa').value || '').trim();
+  if (!v) { $('#reasonErr').textContent = 'Please write a reason.'; return; }
+  modalDone(v);
+};
+
+function renderMessage(title, text, btn, action) {
+  hdr({ title: 'HAJIME' });
+  main(`<div class="empty"><div class="big">⚠️</div><h3>${esc(title)}</h3><p>${esc(text)}</p>${btn ? `<button class="btn" data-a="${esc(action)}">${esc(btn)}</button>` : ''}</div>`);
+}
+
+/* ======================================================================
+   TRAINEE APP
+   ====================================================================== */
+const T = {
+  key: '', D: null, queue: [], flushing: false, timer: null, backoff: 0, offline: false, halted: false,
+  ui: { screen: 'week', wi: 0, day: '', slot: '', n: 1, step: 'kg', k1: '', k2: '', pin: 1, err: '', reorder: false, note: null }
+};
+const qKey = () => 'hj_q_' + T.key;
+const sKey = () => 'hj_s_' + T.key;
+
+async function bootTrainee(key) {
+  T.key = key;
+  T.queue = LS.get(qKey(), []);
+  if (!Array.isArray(T.queue)) T.queue = [];
+  Nav.onBack = tBack;
+  const cached = LS.get(sKey(), null);
+  if (cached && cached.ok) {
+    applyServer(cached);
+    T.ui.wi = currentWeekIndex(T.D);
+    renderT();
+  }
+  await loadT();
+  flushSoon(0);
+  window.addEventListener('online', () => { T.offline = false; flushSoon(0); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { flushSoon(0); loadT(); } });
+}
+
+async function loadT() {
+  try {
+    const res = await api({ a: 'state', k: T.key });
+    if (!res.ok) {
+      if (res.error === 'expired') { T.halted = true; return renderMessage('Subscription ended', 'Your subscription has ended. Contact your coach to renew.'); }
+      if (res.error === 'notfound') { T.halted = true; return renderMessage('Link not valid', 'Please check the link your coach sent you.'); }
+      throw new AppError('server', res.error || 'Server error');
+    }
+    LS.set(sKey(), res);
+    const first = !T.D;
+    applyServer(res);
+    if (first) T.ui.wi = currentWeekIndex(T.D);
+    clampUi();
+    const typing = document.activeElement && /TEXTAREA|INPUT/.test(document.activeElement.tagName);
+    if (!typing) renderT(true);
+  } catch (err) {
+    if (!T.D) renderMessage('Couldn’t load your program', err.code === 'network' ? 'Check your internet connection and try again.' : err.message, 'TRY AGAIN', 't.reload');
+    else if (err.code === 'network') { T.offline = true; updateSync(); }
+  }
+}
+ACT['t.reload'] = () => { main('<div class="spin"></div>'); loadT(); };
+
+function applyServer(raw) {
+  T.D = indexData(raw);
+  T.queue.forEach((op) => applyOp(T.D, op));
+}
+
+function clampUi() {
+  const D = T.D;
+  if (T.ui.wi >= D.weeks.length) T.ui.wi = Math.max(0, D.weeks.length - 1);
+  if (!D.weeks.length) { T.ui.screen = 'week'; return; }
+  const m = D.mesoById[D.weeks[T.ui.wi].meso];
+  if (T.ui.screen !== 'week' && !m.days.some((d) => d.id === T.ui.day)) T.ui.screen = 'week';
+}
+
+/* ---------- sync queue ---------- */
+function applyOp(D, op) {
+  if (op.t === 'set') {
+    D.sets[sk(op.meso, op.week, op.slot, op.n)] = { meso: op.meso, week: op.week, slot: op.slot, n: op.n, ex: op.ex || '', kg: op.kg, reps: op.reps, status: op.status, reason: op.reason || '' };
+  } else if (op.t === 'entry') {
+    const k = ek(op.meso, op.week, op.slot);
+    const e = D.entries[k] || { meso: op.meso, week: op.week, slot: op.slot, day: op.day || '', ex: op.ex || '', order: 0, status: '', reason: '', tnote: '', cnote: '' };
+    ['status', 'reason', 'tnote'].forEach((f) => { if (f in op) e[f] = op[f]; });
+    if (op.ex) e.ex = op.ex;
+    D.entries[k] = e;
+  } else if (op.t === 'order') {
+    op.slots.forEach((s, i) => {
+      const k = ek(op.meso, op.week, s);
+      const e = D.entries[k] || { meso: op.meso, week: op.week, slot: s, day: op.day || '', ex: (op.ex || {})[s] || '', order: 0, status: '', reason: '', tnote: '', cnote: '' };
+      e.order = i + 1;
+      D.entries[k] = e;
+    });
+  }
+}
+
+function enqueue(op) {
+  op.oid = uid();
+  const inflight = T.inflight || {};
+  if (op.t === 'set') {
+    // a newer full set record replaces an unsent older one
+    T.queue = T.queue.filter((q) => inflight[q.oid] || !(q.t === 'set' && q.meso === op.meso && q.week === op.week && q.slot === op.slot && q.n === op.n));
+  }
+  T.queue.push(op);
+  if (!LS.set(qKey(), T.queue)) toast('Phone storage is full — keep the app open until it syncs');
+  applyOp(T.D, op);
+  updateSync();
+  flushSoon(250);
+}
+
+function flushSoon(ms) { clearTimeout(T.timer); T.timer = setTimeout(flush, ms); }
+
+async function flush() {
+  if (T.flushing || T.halted || !T.queue.length) { updateSync(); return; }
+  T.flushing = true;
+  const batch = T.queue.slice(0, 40);
+  T.inflight = {};
+  batch.forEach((o) => { T.inflight[o.oid] = true; });
+  updateSync();
+  let again = false;
+  try {
+    const res = await api(null, { k: T.key, ops: batch });
+    if (!res.ok) {
+      if (res.fatal) { T.halted = true; toast(res.error === 'expired' ? 'Subscription ended — changes not sent' : 'Link not valid'); return; }
+      throw new AppError('server', res.error || 'Server error');
+    }
+    const done = {};
+    (res.applied || []).forEach((o) => { done[o] = true; });
+    (res.rejected || []).forEach((r) => { done[r.oid] = true; });
+    T.queue = T.queue.filter((o) => !done[o.oid]);
+    LS.set(qKey(), T.queue);
+    if ((res.rejected || []).length) { console.warn('Rejected', res.rejected); toast('Some entries couldn’t be saved'); }
+    T.offline = false;
+    T.backoff = 0;
+    again = T.queue.length > 0;
+  } catch (err) {
+    if (err.code === 'network') T.offline = true;
+    T.backoff = Math.min(T.backoff ? T.backoff * 2 : 2000, 60000);
+    flushSoon(T.backoff);
+  } finally {
+    T.flushing = false;
+    T.inflight = null;
+    updateSync();
+  }
+  if (again) flushSoon(0);
+}
+
+function syncPill() {
+  const n = T.queue.length;
+  let cls = 's-ok', txt = 'SYNCED';
+  if (T.halted) { cls = 's-halt'; txt = 'STOPPED'; }
+  else if (n && T.offline) { cls = 's-off'; txt = 'OFFLINE · ' + n; }
+  else if (n) { cls = 's-pend'; txt = 'SAVING · ' + n; }
+  return `<button class="sync ${cls}" data-a="t.sync" aria-label="Sync status"><i></i>${txt}</button>`;
+}
+function updateSync() { if (T.key && T.D && !T.halted) $('#hRight').innerHTML = syncPill(); }
+ACT['t.sync'] = () => { if (T.queue.length) { T.backoff = 0; flushSoon(0); toast('Sending…'); } else toast('Everything is saved'); };
+
+/* ---------- context ---------- */
+function curWeek() { return T.D.weeks[T.ui.wi]; }
+function curMeso() { return T.D.mesoById[curWeek().meso]; }
+function curItems() { const wk = curWeek(); return orderedItems(T.D, curMeso(), wk.w, T.ui.day); }
+function curItem() { return curItems().find((x) => x.slot === T.ui.slot) || null; }
+
+function renderT(keepScroll) {
+  if (!T.D || T.halted) return;
+  if (!T.D.weeks.length) T.ui.screen = 'week';
+  if (T.ui.screen === 'ex') return renderEx(keepScroll);
+  if (T.ui.screen === 'day') return renderDay(keepScroll);
+  return renderWeek(keepScroll);
+}
+
+function tBack() {
+  if (T.ui.screen === 'ex') { saveNote(); T.ui.screen = 'day'; }
+  else if (T.ui.screen === 'day') { T.ui.screen = 'week'; T.ui.reorder = false; }
+  renderT();
+}
+
+/* ---------- week screen ---------- */
+function renderWeek(keepScroll) {
+  const D = T.D;
+  hdr({ title: 'HAJIME', right: syncPill() });
+  if (!D.weeks.length) return main(`<div class="empty"><div class="big">🗓️</div><p>Your program isn’t ready yet.</p><p class="dim">Your coach will publish it soon.</p></div>`);
+  const wk = curWeek(), m = curMeso();
+  let opts = '';
+  D.mesos.forEach((mm) => {
+    opts += `<optgroup label="${esc(mesoLabel(mm))}">`;
+    D.weeks.forEach((x, i) => { if (x.meso === mm.id) opts += `<option value="${i}"${i === T.ui.wi ? ' selected' : ''}>WEEK ${x.g}</option>`; });
+    opts += '</optgroup>';
+  });
+  const cards = m.days.map((d) => dayCard(D, m, wk.w, d)).join('');
+  main(`<div class="weekbar">
+      <button class="nav" data-a="t.wprev" ${T.ui.wi <= 0 ? 'disabled' : ''} aria-label="Previous week">‹</button>
+      <select class="wsel" data-ch="t.wsel">${opts}</select>
+      <button class="nav" data-a="t.wnext" ${T.ui.wi >= D.weeks.length - 1 ? 'disabled' : ''} aria-label="Next week">›</button>
+    </div>
+    <div class="meso-tag">${esc(mesoLabel(m))}</div>${cards}`, keepScroll);
+}
+
+function daySkipInfo(D, m, w, items) {
+  let reason = '', has = false;
+  items.forEach((it) => {
+    const e = entryOf(D, m.id, w, it.slot);
+    if (e && e.status === 'skipday') { has = true; reason = reason || e.reason; }
+    for (let n = 1; n <= it.sets; n++) { const s = setOf(D, m.id, w, it.slot, n); if (s && s.status === 'skipday') { has = true; reason = reason || s.reason; } }
+  });
+  return { has, reason };
+}
+
+function dayCard(D, m, w, d) {
+  const items = resolveDay(D, m, w, d.id);
+  const st = dayStatus(D, m, w, d.id);
+  const fin = items.filter((it) => exFinished(D, m.id, w, it)).length;
+  const sk2 = daySkipInfo(D, m, w, items);
+  let btn = '';
+  if (sk2.has) btn = `<button class="pill" data-a="t.undoSkipDay" data-day="${esc(d.id)}">UNDO SKIP</button>`;
+  else if (items.length && fin < items.length) btn = `<button class="pill red" data-a="t.skipDay" data-day="${esc(d.id)}">SKIP DAY</button>`;
+  return `<div class="card st-${st}" data-a="t.openDay" data-day="${esc(d.id)}">
+    <div class="grow"><div class="ttl">${esc(d.name)}</div>
+    <div class="sub">${fin}/${items.length} exercises${sk2.has && sk2.reason ? ' · Skipped: ' + esc(sk2.reason) : ''}</div></div>
+    ${btn}<span class="dot st-${st}"></span></div>`;
+}
+
+CHG['t.wsel'] = (el) => { T.ui.wi = +el.value; renderWeek(); };
+ACT['t.wprev'] = () => { if (T.ui.wi > 0) { T.ui.wi--; renderWeek(); } };
+ACT['t.wnext'] = () => { if (T.ui.wi < T.D.weeks.length - 1) { T.ui.wi++; renderWeek(); } };
+ACT['t.openDay'] = (ds) => { T.ui.day = ds.day; T.ui.screen = 'day'; T.ui.reorder = false; Nav.push(); renderDay(); };
+
+ACT['t.skipDay'] = async (ds) => {
+  const reason = await askReason('Skip this day');
+  if (!reason) return;
+  const wk = curWeek(), m = curMeso();
+  resolveDay(T.D, m, wk.w, ds.day).forEach((it) => {
+    const st = exStatus(T.D, m.id, wk.w, it);
+    if (st === 'none') {
+      enqueue({ t: 'entry', meso: m.id, week: wk.w, slot: it.slot, day: ds.day, ex: it.ex, status: 'skipday', reason });
+    } else if (st === 'partial') {
+      for (let n = 1; n <= it.sets; n++) {
+        const s = setOf(T.D, m.id, wk.w, it.slot, n);
+        const ss = setState(s);
+        if (ss !== 'done' && ss !== 'skip') enqueue({ t: 'set', meso: m.id, week: wk.w, slot: it.slot, n, ex: it.ex, kg: s ? s.kg : '', reps: s ? s.reps : '', status: 'skipday', reason });
       }
-      data._ms = ms;
-      return data;
-    } catch (err) {
-      show('err', '✗ Request failed', String(err), diagnose(err, text));
-      return null;
+    }
+  });
+  renderT(true);
+};
+
+ACT['t.undoSkipDay'] = (ds) => {
+  const wk = curWeek(), m = curMeso();
+  resolveDay(T.D, m, wk.w, ds.day).forEach((it) => undoSkips(m, wk, it, 'skipday'));
+  renderT(true);
+};
+
+function undoSkips(m, wk, it, kind) {
+  const e = entryOf(T.D, m.id, wk.w, it.slot);
+  if (e && e.status === kind) enqueue({ t: 'entry', meso: m.id, week: wk.w, slot: it.slot, day: it.day, ex: it.ex, status: '', reason: '' });
+  for (let n = 1; n <= it.sets; n++) {
+    const s = setOf(T.D, m.id, wk.w, it.slot, n);
+    if (s && s.status === kind) enqueue({ t: 'set', meso: m.id, week: wk.w, slot: it.slot, n, ex: s.ex || it.ex, kg: s.kg, reps: s.reps, status: (s.kg || s.reps) ? 'done' : '', reason: '' });
+  }
+}
+
+/* ---------- day screen ---------- */
+function renderDay(keepScroll) {
+  const D = T.D, wk = curWeek(), m = curMeso();
+  const d = m.days.find((x) => x.id === T.ui.day);
+  if (!d) { T.ui.screen = 'week'; return renderWeek(); }
+  hdr({ title: d.name, back: true, right: syncPill() });
+  const items = orderedItems(D, m, wk.w, d.id);
+  const list = items.map((it, i) => exCard(D, m, wk, it, i, items.length)).join('');
+  main(`<div class="rowbar"><div class="muted">WEEK ${wk.g}</div>
+      ${items.length > 1 ? `<button class="pill ${T.ui.reorder ? 'blue' : ''}" data-a="t.reorder">${T.ui.reorder ? 'DONE' : 'REORDER'}</button>` : ''}</div>
+    ${list || '<div class="empty"><p>No exercises in this day.</p></div>'}`, keepScroll);
+}
+
+function exCard(D, m, wk, it, i, total) {
+  const ex = exInfo(D, it.ex);
+  const st = exStatus(D, m.id, wk.w, it);
+  const e = entryOf(D, m.id, wk.w, it.slot);
+  let skipReason = '', exSkipSets = false;
+  if (st === 'skip') skipReason = (e && e.reason) || '';
+  for (let n = 1; n <= it.sets; n++) { const s = setOf(D, m.id, wk.w, it.slot, n); if (s && s.status === 'skipex') { exSkipSets = true; skipReason = skipReason || s.reason; } }
+  const entrySkip = e && e.status === 'skip';
+  let right = '';
+  if (T.ui.reorder) {
+    right = `<button class="sq" data-a="t.up" data-slot="${esc(it.slot)}" ${i === 0 ? 'disabled' : ''} aria-label="Move up">▲</button>
+             <button class="sq" data-a="t.down" data-slot="${esc(it.slot)}" ${i === total - 1 ? 'disabled' : ''} aria-label="Move down">▼</button>`;
+  } else {
+    if (ex.video) right += `<button class="sq" data-a="t.video" data-slot="${esc(it.slot)}" aria-label="Video">▶</button>`;
+    if (entrySkip || exSkipSets) right += `<button class="pill" data-a="t.undoSkipEx" data-slot="${esc(it.slot)}">UNDO</button>`;
+    else if (!exFinished(D, m.id, wk.w, it)) right += `<button class="pill red" data-a="t.skipEx" data-slot="${esc(it.slot)}">SKIP</button>`;
+  }
+  const sub = st === 'skip'
+    ? 'Skipped' + (skipReason ? ': ' + esc(skipReason) : '')
+    : `${it.sets} × ${esc(it.reps)} · ${doneSets(D, m.id, wk.w, it)}/${it.sets} sets${exSkipSets && skipReason ? ' · Skipped: ' + esc(skipReason) : ''}`;
+  const open = !T.ui.reorder && st !== 'skip' ? `data-a="t.openEx" data-slot="${esc(it.slot)}"` : '';
+  return `<div class="card st-${st}" ${open}><div class="num">${i + 1}</div>
+    <div class="grow"><div class="ttl">${esc(ex.name)}</div><div class="sub">${sub}</div></div>${right}</div>`;
+}
+
+ACT['t.reorder'] = () => { T.ui.reorder = !T.ui.reorder; renderDay(true); };
+function moveItem(slot, dir) {
+  const wk = curWeek(), m = curMeso();
+  const items = orderedItems(T.D, m, wk.w, T.ui.day);
+  const i = items.findIndex((x) => x.slot === slot);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= items.length) return;
+  const tmp = items[i]; items[i] = items[j]; items[j] = tmp;
+  const exMap = {};
+  items.forEach((x) => { exMap[x.slot] = x.ex; });
+  enqueue({ t: 'order', meso: m.id, week: wk.w, day: T.ui.day, slots: items.map((x) => x.slot), ex: exMap });
+  renderDay(true);
+}
+ACT['t.up'] = (ds) => moveItem(ds.slot, -1);
+ACT['t.down'] = (ds) => moveItem(ds.slot, 1);
+
+ACT['t.video'] = (ds) => {
+  const it = curItems().find((x) => x.slot === ds.slot);
+  const v = it ? exInfo(T.D, it.ex).video : '';
+  if (v) window.open(v, '_blank', 'noopener');
+};
+
+ACT['t.skipEx'] = async (ds) => {
+  const it = curItems().find((x) => x.slot === ds.slot);
+  if (!it) return;
+  const reason = await askReason('Skip this exercise');
+  if (!reason) return;
+  const wk = curWeek(), m = curMeso();
+  let touched = false;
+  for (let n = 1; n <= it.sets; n++) if (setState(setOf(T.D, m.id, wk.w, it.slot, n)) !== 'empty') touched = true;
+  if (!touched) {
+    enqueue({ t: 'entry', meso: m.id, week: wk.w, slot: it.slot, day: it.day, ex: it.ex, status: 'skip', reason });
+  } else {
+    for (let n = 1; n <= it.sets; n++) {
+      const s = setOf(T.D, m.id, wk.w, it.slot, n);
+      const ss = setState(s);
+      if (ss !== 'done' && ss !== 'skip') enqueue({ t: 'set', meso: m.id, week: wk.w, slot: it.slot, n, ex: it.ex, kg: s ? s.kg : '', reps: s ? s.reps : '', status: 'skipex', reason });
     }
   }
+  renderDay(true);
+};
 
-  function busy(btn, on) { btn.disabled = on; }
+ACT['t.undoSkipEx'] = (ds) => {
+  const it = curItems().find((x) => x.slot === ds.slot);
+  if (!it) return;
+  const wk = curWeek(), m = curMeso();
+  undoSkips(m, wk, it, 'skip');
+  undoSkips(m, wk, it, 'skipex');
+  renderDay(true);
+};
 
-  $('bPing').onclick = async e => {
-    busy(e.target, true); show('wait', '… Pinging');
-    const d = await call('GET', { action: 'ping' });
-    busy(e.target, false);
-    if (d) show('ok', '✓ Connected', `Server answered in ${d._ms} ms`, 'الاتصال شغال. كمّل الخطوة ٢.');
-  };
+/* ---------- exercise screen ---------- */
+function openSetFor(it, after) {
+  const wk = curWeek(), m = curMeso();
+  const open = (n) => { const st = setState(setOf(T.D, m.id, wk.w, it.slot, n)); return st !== 'done' && st !== 'skip'; };
+  for (let n = after + 1; n <= it.sets; n++) if (open(n)) return n;
+  for (let n = 1; n <= it.sets; n++) if (open(n)) return n;
+  return 0;
+}
 
-  $('bSave').onclick = async e => {
-    const key = $('key').value.trim();
-    if (!key) { show('err', '✗ Missing key'); return; }
-    busy(e.target, true); show('wait', '… Saving');
-    setCounter++;
-    const d = await call('POST', null, {
-      key, week: 1, day: 'Test Day', exercise: $('ex').value.trim(),
-      set: setCounter, kg: $('kg').value.trim(), reps: $('reps').value.trim(), status: 'done'
+ACT['t.openEx'] = (ds) => {
+  T.ui.slot = ds.slot;
+  const it = curItem();
+  if (!it) return;
+  const n = openSetFor(it, 0);
+  T.ui.n = n || it.sets;
+  T.ui.step = n ? 'kg' : 'note';
+  T.ui.k1 = ''; T.ui.k2 = ''; T.ui.pin = 1; T.ui.err = '';
+  const e = entryOf(T.D, curMeso().id, curWeek().w, it.slot);
+  T.ui.note = e ? e.tnote : '';
+  T.ui.screen = 'ex';
+  Nav.push();
+  renderEx();
+};
+
+function splitKg(v) { const p = String(v || '').split('-'); return [p[0] || '', p[1] || '']; }
+function cleanNum(v) { let s = String(v || '').trim(); if (s.endsWith('.')) s = s.slice(0, -1); return /^\d{1,4}(\.\d{1,2})?$/.test(s) || /^\.\d{1,2}$/.test(s) ? s : ''; }
+
+function defaultKg(it, prev) {
+  const wk = curWeek(), m = curMeso(), n = T.ui.n;
+  const own = setOf(T.D, m.id, wk.w, it.slot, n);
+  if (own && own.kg && !isSkip(own.status)) return own.kg;
+  for (let k = n - 1; k >= 1; k--) { const s = setOf(T.D, m.id, wk.w, it.slot, k); if (s && s.kg && !isSkip(s.status)) return s.kg; }
+  if (prev) {
+    const same = prev.sets.find((s) => s.n === n && s.kg);
+    if (same) return same.kg;
+    const any = prev.sets.find((s) => s.kg);
+    if (any) return any.kg;
+  }
+  return '';
+}
+
+function renderEx(keepScroll) {
+  const D = T.D, wk = curWeek(), m = curMeso();
+  const it = curItem();
+  if (!it) { T.ui.screen = 'day'; return renderDay(); }
+  const ex = exInfo(D, it.ex);
+  const d = m.days.find((x) => x.id === T.ui.day);
+  hdr({ title: d ? d.name : '', back: true, right: syncPill() });
+  const n = T.ui.n;
+  const cur = setOf(D, m.id, wk.w, it.slot, n) || {};
+  const prev = prevPerf(D, T.ui.wi, it);
+  const cnote = coachNoteFor(D, m, wk.w, it);
+
+  let chips = '';
+  for (let k = 1; k <= it.sets; k++) {
+    const s = setOf(D, m.id, wk.w, it.slot, k);
+    const st = setState(s);
+    const val = st === 'skip' ? 'SKIP' : st === 'empty' ? '—' : `${s.kg || '—'}×${s.reps || '—'}`;
+    chips += `<button class="chip c-${st} ${T.ui.step !== 'note' && k === n ? 'on' : ''}" data-a="t.chip" data-n="${k}"><small>SET ${k}</small>${esc(val)}</button>`;
+  }
+  chips += `<button class="chip ${T.ui.step === 'note' ? 'on' : ''}" data-a="t.chip" data-n="note"><small>NOTE</small>✎</button>`;
+
+  let panel = '';
+  if (T.ui.step === 'note') {
+    panel = `<div class="lbl">Your note (optional)</div>
+      <textarea class="ta" data-in="t.note" maxlength="1000" placeholder="How did it feel? Anything your coach should know?">${esc(T.ui.note || '')}</textarea>
+      <button class="btn green" data-a="t.finish">FINISH</button>`;
+  } else if (T.ui.step === 'reps') {
+    let grid = '';
+    const [lo, hi] = String(it.reps).split('-').map(Number);
+    for (let r = 1; r <= 16; r++) grid += `<button class="${String(cur.reps) === String(r) ? 'on' : (r >= lo && r <= (hi || lo) ? 'tg' : '')}" data-a="t.reps" data-r="${r}">${r}</button>`;
+    panel = `<div class="lbl">Reps · set ${n} · ${esc(cur.kg || '')} kg</div><div class="reps">${grid}</div>
+      <div class="err">${esc(T.ui.err)}</div>
+      <button class="btn ghost sm" data-a="t.backKg">‹ CHANGE WEIGHT</button>`;
+  } else {
+    const def = defaultKg(it, prev);
+    let disp;
+    if (ex.prime) {
+      const [d1, d2] = splitKg(def);
+      disp = `<div class="kg2">
+        <div class="kgd ${T.ui.pin === 1 ? 'on' : ''} ${T.ui.k1 ? '' : 'ph'}" data-a="t.pin" data-p="1"><small>WEIGHT 1</small>${esc(T.ui.k1 || d1 || '0')}</div>
+        <div class="kgd ${T.ui.pin === 2 ? 'on' : ''} ${T.ui.k2 ? '' : 'ph'}" data-a="t.pin" data-p="2"><small>WEIGHT 2</small>${esc(T.ui.k2 || d2 || '0')}</div></div>`;
+    } else {
+      disp = `<div class="kgd ${T.ui.k1 ? '' : 'ph'}">${esc(T.ui.k1 || def || '0')}</div>`;
+    }
+    const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del'];
+    panel = `<div class="lbl">Weight (kg) · set ${n}</div>${disp}
+      <div class="pad">${keys.map((k) => `<button data-a="t.key" data-k="${k}">${k === 'del' ? '⌫' : k}</button>`).join('')}</div>
+      <div class="err">${esc(T.ui.err)}</div>
+      <button class="btn" data-a="t.nextKg">NEXT</button>`;
+  }
+
+  let prevHtml = '';
+  if (prev) {
+    prevHtml = `<div class="box prev"><div class="lbl" style="margin-top:0">Last time · week ${prev.g}</div>
+      ${prev.sets.map((s) => `<div class="line"><span class="muted">Set ${s.n}</span><b>${s.st === 'skip' ? 'Skipped' : esc((s.kg || '—') + ' kg × ' + (s.reps || '—'))}</b></div>`).join('')}
+      ${prev.tnote ? `<div class="sub" style="margin-top:6px">You: ${esc(prev.tnote)}</div>` : ''}
+      ${prev.cnote ? `<div class="sub">Coach: ${esc(prev.cnote)}</div>` : ''}</div>`;
+  }
+
+  main(`<div class="exhead"><div class="ttl">${esc(ex.name)}</div>
+      ${ex.video ? `<button class="sq" data-a="t.video" data-slot="${esc(it.slot)}" aria-label="Video">▶</button>` : ''}</div>
+    ${cnote ? `<div class="cnote"><b>COACH</b>${esc(cnote)}</div>` : ''}
+    <div class="info2"><div><small>SET</small><b>${T.ui.step === 'note' ? '—' : n + ' / ' + it.sets}</b></div><div><small>TARGET REPS</small><b>${esc(it.reps)}</b></div></div>
+    <div class="chips">${chips}</div>
+    ${T.ui.step !== 'note' ? `<div class="acts"><button class="pill" data-a="t.clearSet">CLEAR SET</button><button class="pill red" data-a="t.skipSet">SKIP SET</button></div>` : ''}
+    ${panel}${prevHtml}`, keepScroll);
+}
+
+ACT['t.chip'] = (ds) => {
+  if (ds.n === 'note') { T.ui.step = 'note'; }
+  else { T.ui.n = +ds.n; T.ui.step = 'kg'; T.ui.k1 = ''; T.ui.k2 = ''; T.ui.pin = 1; T.ui.err = ''; }
+  renderEx(true);
+};
+ACT['t.pin'] = (ds) => { T.ui.pin = +ds.p; renderEx(true); };
+ACT['t.key'] = (ds) => {
+  const f = T.ui.pin === 2 ? 'k2' : 'k1';
+  let v = T.ui[f];
+  if (ds.k === 'del') v = v.slice(0, -1);
+  else if (ds.k === '.') { if (v.indexOf('.') < 0) v = (v || '0') + '.'; }
+  else { const nv = (v === '0' ? '' : v) + ds.k; if (/^\d{1,4}(\.\d{0,2})?$/.test(nv)) v = nv; }
+  T.ui[f] = v;
+  T.ui.err = '';
+  renderEx(true);
+};
+ACT['t.nextKg'] = () => {
+  const it = curItem();
+  if (!it) return;
+  const wk = curWeek(), m = curMeso();
+  const prev = prevPerf(T.D, T.ui.wi, it);
+  const def = defaultKg(it, prev);
+  let val;
+  if (exInfo(T.D, it.ex).prime) {
+    const [d1, d2] = splitKg(def);
+    const a = cleanNum(T.ui.k1 || d1), b = cleanNum(T.ui.k2 || d2);
+    if (!a || !b) { T.ui.err = 'Enter both weights.'; T.ui.pin = !a ? 1 : 2; return renderEx(true); }
+    val = a + '-' + b;
+  } else {
+    val = cleanNum(T.ui.k1 || def);
+    if (!val) { T.ui.err = 'Enter the weight.'; return renderEx(true); }
+  }
+  const cur = setOf(T.D, m.id, wk.w, it.slot, T.ui.n) || {};
+  const reps = cur.reps && !isSkip(cur.status) ? cur.reps : '';
+  enqueue({ t: 'set', meso: m.id, week: wk.w, slot: it.slot, n: T.ui.n, ex: it.ex, kg: val, reps, status: 'done', reason: '' });
+  T.ui.step = 'reps'; T.ui.k1 = ''; T.ui.k2 = ''; T.ui.err = '';
+  renderEx(true);
+};
+ACT['t.backKg'] = () => { T.ui.step = 'kg'; T.ui.err = ''; renderEx(true); };
+ACT['t.reps'] = (ds) => {
+  const it = curItem();
+  if (!it) return;
+  const wk = curWeek(), m = curMeso();
+  const cur = setOf(T.D, m.id, wk.w, it.slot, T.ui.n) || {};
+  if (!cur.kg || isSkip(cur.status)) { T.ui.step = 'kg'; T.ui.err = 'Enter the weight first.'; return renderEx(true); }
+  enqueue({ t: 'set', meso: m.id, week: wk.w, slot: it.slot, n: T.ui.n, ex: it.ex, kg: cur.kg, reps: String(ds.r), status: 'done', reason: '' });
+  advance(it);
+};
+function advance(it) {
+  const next = openSetFor(it, T.ui.n);
+  if (next) { T.ui.n = next; T.ui.step = 'kg'; } else T.ui.step = 'note';
+  T.ui.k1 = ''; T.ui.k2 = ''; T.ui.pin = 1; T.ui.err = '';
+  renderEx(true);
+}
+ACT['t.clearSet'] = () => {
+  const it = curItem();
+  if (!it) return;
+  const wk = curWeek(), m = curMeso();
+  enqueue({ t: 'set', meso: m.id, week: wk.w, slot: it.slot, n: T.ui.n, ex: it.ex, kg: '', reps: '', status: '', reason: '' });
+  T.ui.step = 'kg'; T.ui.k1 = ''; T.ui.k2 = ''; T.ui.err = '';
+  renderEx(true);
+};
+ACT['t.skipSet'] = async () => {
+  const it = curItem();
+  if (!it) return;
+  const reason = await askReason('Skip set ' + T.ui.n);
+  if (!reason) return;
+  const wk = curWeek(), m = curMeso();
+  enqueue({ t: 'set', meso: m.id, week: wk.w, slot: it.slot, n: T.ui.n, ex: it.ex, kg: '', reps: '', status: 'skip', reason });
+  advance(it);
+};
+INP['t.note'] = (el) => { T.ui.note = el.value; };
+function saveNote() {
+  const it = curItem();
+  if (!it || T.ui.note === null) return;
+  const wk = curWeek(), m = curMeso();
+  const e = entryOf(T.D, m.id, wk.w, it.slot);
+  const v = String(T.ui.note).trim();
+  if (v !== ((e && e.tnote) || '')) enqueue({ t: 'entry', meso: m.id, week: wk.w, slot: it.slot, day: it.day, ex: it.ex, tnote: v });
+}
+ACT['t.finish'] = () => { Nav.back(); };
+
+/* ======================================================================
+   COACH APP
+   ====================================================================== */
+const C = { key: '', dash: null, exMap: {}, tr: '', D: null, screen: 'home', ed: null, rv: { wi: -1 }, pick: null, saveTimer: null };
+
+async function coachPost(op) {
+  const res = await api(null, { c: C.key, op });
+  if (!res.ok) throw new AppError('server', res.error || 'Server error');
+  return res;
+}
+function errText(err) { return err.code === 'network' ? 'No connection — not saved.' : err.message; }
+
+async function bootCoach(key) {
+  C.key = key;
+  Nav.onBack = cBack;
+  window.addEventListener('beforeunload', (ev) => { if (C.ed && (C.ed.dirty || C.ed.saving)) { ev.preventDefault(); ev.returnValue = ''; } });
+  await loadDash();
+}
+
+async function loadDash() {
+  try {
+    const res = await api({ a: 'coach', c: C.key, app: location.origin + location.pathname });
+    if (!res.ok) return renderMessage('Access denied', 'This coach link is not valid.');
+    C.dash = res;
+    C.exMap = {};
+    res.exercises.forEach((x) => { C.exMap[x.id] = x; });
+    if (C.screen === 'home') renderHome();
+  } catch (err) {
+    renderMessage('Couldn’t connect', errText(err), 'TRY AGAIN', 'c.reloadDash');
+  }
+}
+ACT['c.reloadDash'] = () => { main('<div class="spin"></div>'); loadDash(); };
+
+async function loadTrainee(key) {
+  const res = await api({ a: 'state', k: key, c: C.key });
+  if (!res.ok) throw new AppError('server', res.error || 'Server error');
+  C.tr = key;
+  C.D = indexData(res);
+  return C.D;
+}
+
+function trSelect() {
+  return `<select class="in trsel" data-ch="c.switchTr" aria-label="Trainee">${C.dash.trainees.map((t) =>
+    `<option value="${esc(t.key)}" ${t.key === C.tr ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>`;
+}
+
+CHG['c.switchTr'] = async (el) => {
+  const key = el.value;
+  if (!key || key === C.tr) return;
+  const fromEditor = C.screen === 'editor';
+  if (fromEditor && !(await leaveEditor(false))) { el.value = C.tr; return; }
+  main('<div class="spin"></div>');
+  try {
+    await loadTrainee(key);
+  } catch (err) {
+    toast(errText(err));
+    try { await loadTrainee(C.tr); } catch (_) { /* keep old data */ }
+    if (fromEditor) { C.screen = 'trainee'; Nav.silentBack(); }
+    return renderTraineePage();
+  }
+  if (fromEditor) {
+    const latest = C.D.mesosAll.slice().sort((a, b) => b.num - a.num)[0];
+    if (latest) return openEditor(latest.id);
+    C.screen = 'trainee';
+    Nav.silentBack();
+  }
+  renderTraineePage();
+};
+
+function trOf(key) { return (C.dash.trainees || []).find((t) => t.key === key) || null; }
+function linkFor(p, key) { return location.origin + location.pathname + '?' + p + '=' + key; }
+
+async function cBack() {
+  if (C.screen === 'editor') {
+    const ok = await leaveEditor();
+    if (!ok) { Nav.push(); return; }
+    C.screen = 'trainee';
+    return renderTraineePage();
+  }
+  if (C.screen === 'trainee' || C.screen === 'exercises') { C.screen = 'home'; C.ed = null; renderHome(); loadDash(); return; }
+  if (C.screen === 'review') { C.screen = 'trainee'; return renderTraineePage(); }
+}
+
+/* ---------- home ---------- */
+function renderHome() {
+  C.screen = 'home';
+  hdr({ title: 'HAJIME · COACH', right: `<button class="sq" data-a="c.reloadDash" aria-label="Refresh">↻</button>` });
+  const list = C.dash.trainees.map((t) => {
+    const cur = t.current;
+    const stc = t.status === 'نشط' ? 'green' : t.status === 'منتهي' ? 'red' : 'amber';
+    return `<div class="card" data-a="c.openTr" data-key="${esc(t.key)}"><div class="grow">
+      <div class="ttl">${esc(t.name)}</div>
+      <div class="sub">${cur ? esc('M' + cur.num + ' · Weeks ' + cur.startWeek + '–' + (cur.startWeek + cur.weeks - 1)) : 'No program yet'} · last log ${esc(ago(t.lastLog))}</div>
+      <div class="chipline"><span class="tag ${stc}">${esc(t.status || '—')}</span>${t.package ? `<span class="tag">${esc(t.package)}</span>` : ''}${t.drafts ? `<span class="tag blue">DRAFT</span>` : ''}</div>
+    </div><span class="muted">›</span></div>`;
+  }).join('');
+  main(`<div class="row"><button class="btn" data-a="c.addTr">+ TRAINEE</button><button class="btn ghost" data-a="c.exList">EXERCISES</button></div>
+    <div class="lbl">Trainees (${C.dash.trainees.length})</div>${list || '<div class="empty"><p>No trainees yet.</p></div>'}`);
+}
+
+ACT['c.openTr'] = async (ds) => {
+  main('<div class="spin"></div>');
+  try {
+    await loadTrainee(ds.key);
+    C.screen = 'trainee';
+    Nav.push();
+    renderTraineePage();
+  } catch (err) { toast(errText(err)); renderHome(); }
+};
+
+/* ---------- add trainee ---------- */
+ACT['c.addTr'] = () => {
+  const resp = (C.dash.respondents || []).filter((r) => !r.linked);
+  openModal(`<h3>New trainee</h3>
+    ${resp.length ? `<div class="lbl">From the form (optional)</div><select class="in" data-ch="c.pickResp"><option value="">— choose —</option>${resp.map((r, i) => `<option value="${i}">${esc((r.name || r.email) + ' · ' + r.email)}</option>`).join('')}</select>` : ''}
+    <div class="lbl">Name</div><input class="in" id="ntName" maxlength="60">
+    <div class="lbl">Email (links the form answers)</div><input class="in" id="ntEmail" type="email" maxlength="120">
+    <div class="err" id="ntErr"></div>
+    <button class="btn" data-a="c.addTrGo">CREATE</button><button class="btn ghost" data-a="modal.no">CANCEL</button>`);
+};
+CHG['c.pickResp'] = (el) => {
+  const resp = (C.dash.respondents || []).filter((r) => !r.linked)[+el.value];
+  if (!resp) return;
+  $('#ntName').value = resp.name || '';
+  $('#ntEmail').value = resp.email;
+};
+ACT['c.addTrGo'] = async (ds, el) => {
+  const name = $('#ntName').value.trim(), email = $('#ntEmail').value.trim();
+  if (!name) { $('#ntErr').textContent = 'Name is required.'; return; }
+  el.disabled = true;
+  try {
+    const res = await coachPost({ t: 'addTrainee', name, email });
+    const link = linkFor('k', res.key);
+    openModal(`<h3>Trainee created</h3><p>Send this link to <b>${esc(name)}</b>:</p><div class="linkbox">${esc(link)}</div>
+      <button class="btn" data-a="c.copy" data-text="${esc(link)}">COPY LINK</button><button class="btn ghost" data-a="modal.no">DONE</button>`);
+    await loadDash();
+  } catch (err) { $('#ntErr').textContent = errText(err); el.disabled = false; }
+};
+ACT['c.copy'] = async (ds) => { toast((await copyText(ds.text)) ? 'Copied' : 'Copy failed — select it manually'); };
+
+/* ---------- trainee page ---------- */
+function renderTraineePage() {
+  C.screen = 'trainee';
+  const t = trOf(C.tr) || { name: C.D.trainee.name, status: C.D.trainee.status, package: C.D.trainee.package };
+  hdr({ title: t.name, back: true });
+  const link = linkFor('k', C.tr);
+  const opt = (list, v) => list.map((x) => `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('');
+  const mesos = C.D.mesosAll.slice().sort((a, b) => b.num - a.num);
+  const mesoCards = mesos.map((m) => {
+    const pub = m.status === 'published';
+    return `<div class="card" data-a="c.openMeso" data-id="${esc(m.id)}"><div class="grow"><div class="ttl">${esc(mesoLabel(m))}</div>
+      <div class="sub">${m.weeks} weeks${pub ? ' · Weeks ' + m.startWeek + '–' + (m.startWeek + m.weeks - 1) : ''} · ${m.days.length} days</div></div>
+      <span class="tag ${pub ? 'green' : 'blue'}">${pub ? 'PUBLISHED' : 'DRAFT'}</span></div>`;
+  }).join('');
+  main(`${trSelect()}<div class="box"><div class="lbl" style="margin-top:0">Trainee link</div><div class="linkbox">${esc(link)}</div>
+      <button class="btn sm ghost" data-a="c.copy" data-text="${esc(link)}">COPY LINK</button></div>
+    <div class="row"><div class="grow"><div class="lbl">Status</div><select class="in" data-ch="c.trStatus">${opt(C.dash.statusList, t.status)}</select></div>
+      <div class="grow"><div class="lbl">Package</div><select class="in" data-ch="c.trPkg"><option value="">—</option>${opt(C.dash.packageList, t.package)}</select></div></div>
+    <div class="row"><button class="btn" data-a="c.newMeso">NEW MESOCYCLE</button><button class="btn ghost" data-a="c.review" ${C.D.weeks.length ? '' : 'disabled'}>REVIEW</button></div>
+    <div class="lbl">Mesocycles</div>${mesoCards || '<div class="empty"><p>No mesocycles yet.</p></div>'}`);
+}
+
+async function updateTr(patch) {
+  try {
+    await coachPost(Object.assign({ t: 'updateTrainee', key: C.tr }, patch));
+    const t = trOf(C.tr);
+    if (t) Object.assign(t, patch);
+    toast('Saved');
+  } catch (err) { toast(errText(err)); renderTraineePage(); }
+}
+CHG['c.trStatus'] = (el) => updateTr({ status: el.value });
+CHG['c.trPkg'] = (el) => updateTr({ package: el.value });
+
+/* ---------- new / copy mesocycle ---------- */
+ACT['c.newMeso'] = () => {
+  const latest = C.D.mesosAll.slice().sort((a, b) => b.num - a.num)[0];
+  const others = C.dash.trainees.filter((t) => t.key !== C.tr && t.current);
+  openModal(`<h3>New mesocycle</h3>
+    <button class="btn" data-a="c.blankMeso">START BLANK</button>
+    ${latest ? `<button class="btn ghost" data-a="c.copyFrom" data-id="${esc(latest.id)}">COPY ${esc(mesoLabel(latest).toUpperCase())}</button>` : ''}
+    ${others.length ? `<div class="lbl">Copy from another trainee</div>${others.map((t) => `<div class="list-item" data-a="c.copyFrom" data-id="${esc(t.current.id)}"><div class="grow"><b>${esc(t.name)}</b><div class="sub">${esc(mesoLabel(t.current))}</div></div>›</div>`).join('')}` : ''}
+    <button class="btn ghost" data-a="modal.no">CANCEL</button>`);
+};
+ACT['c.copyFrom'] = async (ds) => {
+  closeModal();
+  main('<div class="spin"></div>');
+  try {
+    const res = await coachPost({ t: 'copyMeso', fromId: ds.id, toKey: C.tr });
+    await loadTrainee(C.tr);
+    openEditor(res.meso.id);
+  } catch (err) { toast(errText(err)); renderTraineePage(); }
+};
+ACT['c.blankMeso'] = () => {
+  closeModal();
+  const num = C.D.mesosAll.reduce((a, m) => Math.max(a, m.num), 0) + 1;
+  C.ed = newEd({ id: '', status: 'draft', num, title: '', weeks: 4, startWeek: 0, days: [{ id: 'D' + rand(6), name: 'Day 1' }] }, []);
+  C.screen = 'editor';
+  Nav.push();
+  renderEditor();
+  edChanged(false);
+};
+
+/* ---------- editor ---------- */
+function newEd(m, slots) {
+  return { id: m.id, key: C.tr, status: m.status, num: m.num, title: m.title, weeks: m.weeks, startWeek: m.startWeek,
+           days: m.days.map((d) => ({ id: d.id, name: d.name })), origDays: m.days.map((d) => d.id), slots,
+           eff: {}, dirty: false, saving: false, again: false, version: 0, err: '' };
+}
+
+function openEditor(id) {
+  const m = C.D.mesoById[id];
+  if (!m) { toast('Mesocycle not found'); return renderTraineePage(); }
+  let slots = [];
+  const ed = newEd(m, slots);
+  if (m.status === 'draft') {
+    slots = (C.D.planByMeso[m.id] || []).filter((p) => p.ex).map((p) => ({ slot: p.slot, day: p.day, pos: p.pos, ex: p.ex, sets: p.sets, reps: p.reps, note: p.note }));
+  } else {
+    m.days.forEach((d) => {
+      const fw = firstEditableWeek(C.D, m, d.id);
+      ed.eff[d.id] = fw;
+      resolveDay(C.D, m, Math.min(fw, m.weeks), d.id).filter((it) => !it.stale)
+        .forEach((it) => slots.push({ slot: it.slot, day: d.id, pos: it.pos, ex: it.ex, sets: it.sets, reps: it.reps, note: it.note }));
     });
-    busy(e.target, false);
-    if (d) show('ok', `✓ Saved (row ${d.row})`, `Took ${d._ms} ms`, 'افتح الشيت وتأكد إن الصف انضاف، وإن خانة KG مكتوب فيها 30-40 مو تاريخ.');
-  };
+  }
+  ed.slots = slots;
+  normPos(ed);
+  C.ed = ed;
+  if (C.screen !== 'editor') Nav.push();
+  C.screen = 'editor';
+  renderEditor();
+}
+ACT['c.openMeso'] = async (ds) => {
+  main('<div class="spin"></div>');
+  try { await loadTrainee(C.tr); } catch (err) { toast(errText(err)); }
+  openEditor(ds.id);
+};
 
-  $('bRead').onclick = async e => {
-    const key = $('key').value.trim();
-    if (!key) { show('err', '✗ Missing key'); return; }
-    busy(e.target, true); show('wait', '… Reading');
-    const d = await call('GET', { action: 'read', key });
-    busy(e.target, false);
-    if (!d) return;
-    show('ok', `✓ Read ${d.rows.length} row(s)`, `Took ${d._ms} ms`, d.rows.length ? 'القراءة شغالة. الاختبار نجح كامل.' : 'ما فيه صفوف بهذا المفتاح. سوّ الخطوة ٢ أول.');
-    const tbl = $('log'); tbl.innerHTML = '';
-    if (!d.rows.length) { $('logCard').style.display = 'none'; return; }
-    const head = document.createElement('tr');
-    ['Exercise', 'Set', 'KG', 'Reps', 'Time'].forEach(h => { const th = document.createElement('th'); th.textContent = h; head.appendChild(th); });
-    tbl.appendChild(head);
-    d.rows.slice().reverse().forEach(r => {
-      const tr = document.createElement('tr');
-      [r.exercise, r.set, r.kg, r.reps, (r.time || '').slice(11, 19)].forEach(v => { const td = document.createElement('td'); td.textContent = v; tr.appendChild(td); });
-      tbl.appendChild(tr);
-    });
-    $('logCard').style.display = 'block';
-  };
+function normPos(ed) {
+  ed.days.forEach((d) => {
+    ed.slots.filter((s) => s.day === d.id).sort((a, b) => a.pos - b.pos).forEach((s, i) => { s.pos = i + 1; });
+  });
+}
+
+function edValidate(ed) {
+  if (!ed.days.length) return 'Add at least one day.';
+  for (const s of ed.slots) if (!/^\d{1,2}(-\d{1,2})?$/.test(s.reps)) return `Fix the reps "${s.reps}" (example: 8-10).`;
+  return '';
+}
+
+function renderEditor(keepScroll) {
+  const ed = C.ed;
+  const pub = ed.status === 'published';
+  hdr({ title: `M${ed.num} · ${pub ? 'PUBLISHED' : 'DRAFT'}`, back: true });
+  const days = ed.days.map((d, di) => {
+    const slots = ed.slots.filter((s) => s.day === d.id).sort((a, b) => a.pos - b.pos);
+    const isNew = ed.origDays.indexOf(d.id) < 0;
+    const canDel = !pub || isNew;
+    let eff = '';
+    if (pub && !isNew) {
+      const fw = ed.eff[d.id] || 1;
+      eff = fw > ed.weeks ? `<div class="warn">All weeks already logged — edits won’t apply.</div>` : `<div class="info">Edits apply from week ${ed.startWeek + fw - 1}.</div>`;
+    }
+    return `<div class="card edday">
+      <div class="edday-h">
+        <input class="in" value="${esc(d.name)}" maxlength="40" data-in="c.dayName" data-day="${esc(d.id)}" aria-label="Day name">
+        <button class="sq" data-a="c.dayMove" data-day="${esc(d.id)}" data-dir="-1" ${di === 0 ? 'disabled' : ''} aria-label="Move day up">▲</button>
+        <button class="sq" data-a="c.dayMove" data-day="${esc(d.id)}" data-dir="1" ${di === ed.days.length - 1 ? 'disabled' : ''} aria-label="Move day down">▼</button>
+        <button class="sq" data-a="c.dayDup" data-day="${esc(d.id)}" aria-label="Duplicate day">⧉</button>
+        ${canDel ? `<button class="sq red" data-a="c.dayDel" data-day="${esc(d.id)}" aria-label="Delete day">✕</button>` : ''}
+      </div>${eff}
+      ${slots.map((s, i) => slotRow(s, i, slots.length)).join('')}
+      <button class="btn ghost sm" data-a="c.addSlot" data-day="${esc(d.id)}">+ ADD EXERCISE</button></div>`;
+  }).join('');
+
+  const latestPub = C.D.mesos[C.D.mesos.length - 1];
+  const canDelete = !pub || (latestPub && latestPub.id === ed.id && !mesoHasLogs(C.D, ed.id));
+  main(`${trSelect()}<div class="savebar" id="saveBar">${saveText()}</div>
+    <div class="lbl" style="margin-top:0">Title (optional)</div><input class="in" value="${esc(ed.title)}" maxlength="60" data-in="c.title" placeholder="e.g. Base block">
+    <div class="lbl">Weeks</div>
+    ${pub ? `<div class="muted">${ed.weeks} weeks · Weeks ${ed.startWeek}–${ed.startWeek + ed.weeks - 1}</div>`
+          : `<div class="row"><button class="sq" data-a="c.weeks" data-dir="-1" ${ed.weeks <= 1 ? 'disabled' : ''}>−</button><b style="min-width:70px;text-align:center">${ed.weeks} weeks</b><button class="sq" data-a="c.weeks" data-dir="1" ${ed.weeks >= 12 ? 'disabled' : ''}>+</button></div>`}
+    <div class="lbl">Days</div>${days}
+    ${ed.days.length < 7 ? `<button class="btn ghost" data-a="c.addDay">+ ADD DAY</button>` : ''}
+    <div class="lbl">Actions</div>
+    ${pub ? `<button class="btn" id="savePubBtn" data-a="c.savePub" ${ed.dirty ? '' : 'disabled'}>SAVE CHANGES</button>`
+          : `<button class="btn green" data-a="c.publish">PUBLISH</button>`}
+    <button class="btn ghost" data-a="c.copyTo">COPY TO A TRAINEE…</button>
+    ${canDelete ? `<button class="btn danger" data-a="c.delMeso">${pub ? 'DELETE MESOCYCLE' : 'DELETE DRAFT'}</button>` : ''}`, keepScroll);
+}
+
+function slotRow(s, i, total) {
+  const ex = C.exMap[s.ex] || { name: s.ex };
+  const custom = REP_RANGES.indexOf(s.reps) < 0;
+  const sd = `data-slot="${esc(s.slot)}"`;
+  return `<div class="slot">
+    <div class="slot-h"><span class="num">${i + 1}</span>
+      <button class="exbtn" data-a="c.slotEx" ${sd}>${esc(ex.name)}</button>
+      <button class="sq" data-a="c.slotMove" ${sd} data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up">▲</button>
+      <button class="sq" data-a="c.slotMove" ${sd} data-dir="1" ${i === total - 1 ? 'disabled' : ''} aria-label="Move down">▼</button>
+      <button class="sq" data-a="c.slotDup" ${sd} aria-label="Duplicate">⧉</button>
+      <button class="sq red" data-a="c.slotDel" ${sd} aria-label="Remove">✕</button></div>
+    <div class="slot-b">
+      <div class="seg">${[1, 2, 3].map((k) => `<button class="${s.sets === k ? 'on' : ''}" data-a="c.slotSets" ${sd} data-v="${k}">${k}</button>`).join('')}</div>
+      <span class="x">sets ×</span>
+      <div class="seg">${REP_RANGES.map((r) => `<button class="${s.reps === r ? 'on' : ''}" data-a="c.slotReps" ${sd} data-v="${r}">${r}</button>`).join('')}</div>
+      <input class="in reps ${custom ? 'on' : ''}" placeholder="other" value="${custom ? esc(s.reps) : ''}" maxlength="5" data-in="c.slotRepsIn" ${sd} aria-label="Custom reps">
+    </div>
+    <input class="in note" placeholder="Coach note (optional)" value="${esc(s.note)}" maxlength="500" data-in="c.slotNote" ${sd}>
+  </div>`;
+}
+
+function saveText() {
+  const ed = C.ed;
+  if (!ed) return '';
+  const v = edValidate(ed);
+  if (v) return `<span class="savebar bad">${esc(v)}</span>`;
+  if (ed.status === 'published') return ed.dirty ? 'Unsaved changes' : 'No changes';
+  if (ed.err) return `<span class="savebar bad">Not saved: ${esc(ed.err)}</span>`;
+  if (ed.saving || ed.dirty) return 'Saving…';
+  return 'All changes saved ✓';
+}
+function updateSaveBar() {
+  const b = $('#saveBar');
+  if (b) b.innerHTML = saveText();
+  const pb = $('#savePubBtn');
+  if (pb) pb.disabled = !C.ed.dirty;
+}
+
+function edChanged(structural) {
+  const ed = C.ed;
+  ed.dirty = true;
+  ed.version++;
+  if (structural) { normPos(ed); renderEditor(true); } else updateSaveBar();
+  if (ed.status === 'draft') { clearTimeout(C.saveTimer); C.saveTimer = setTimeout(() => saveDraft(ed), 900); }
+}
+
+async function saveDraft(ed) {
+  if (ed.status !== 'draft') return;
+  if (ed.saving) { ed.again = true; return; }
+  if (!ed.dirty) return;
+  if (edValidate(ed)) { if (C.ed === ed) updateSaveBar(); return; }
+  ed.saving = true;
+  ed.err = '';
+  const v = ed.version;
+  if (C.ed === ed) updateSaveBar();
+  let retry = 0;
+  try {
+    const res = await coachPost({ t: 'saveMeso', key: ed.key, meso: edPayload(ed) });
+    ed.id = res.meso.id;
+    ed.num = res.meso.num;
+    if (ed.version === v) ed.dirty = false;
+  } catch (err) {
+    ed.err = errText(err);
+    if (err.code === 'network') retry = 5000;
+  }
+  ed.saving = false;
+  if (C.ed === ed) updateSaveBar();
+  if (ed.again || (ed.dirty && !ed.err)) { ed.again = false; setTimeout(() => saveDraft(ed), 200); }
+  else if (retry) setTimeout(() => saveDraft(ed), retry);
+}
+
+function edPayload(ed) {
+  return { id: ed.id || '', title: ed.title, weeks: ed.weeks, days: ed.days,
+           slots: ed.slots.map((s) => ({ slot: s.slot, day: s.day, pos: s.pos, ex: s.ex, sets: s.sets, reps: s.reps, note: s.note })) };
+}
+
+async function waitSaved(ed, ms) {
+  const t0 = Date.now();
+  while ((ed.saving || ed.dirty) && Date.now() - t0 < ms) {
+    if (!ed.saving && ed.dirty && !ed.err && !edValidate(ed)) { clearTimeout(C.saveTimer); saveDraft(ed); }
+    if (ed.err && !ed.saving) break;
+    if (edValidate(ed)) break;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  return !ed.saving && !ed.dirty;
+}
+
+async function leaveEditor(reload = true) {
+  const ed = C.ed;
+  if (!ed) { if (reload) { try { await loadTrainee(C.tr); } catch (_) { /* keep old data */ } } return true; }
+  if (ed.status === 'draft') {
+    if (ed.dirty || ed.saving) {
+      $('#saveBar') && ($('#saveBar').innerHTML = 'Saving…');
+      const ok = await waitSaved(ed, 15000);
+      if (!ok) {
+        const leave = await confirmBox('Not saved', edValidate(ed) || ed.err || 'Your last changes are not saved yet.', 'LEAVE ANYWAY', true);
+        if (!leave) return false;
+      }
+    }
+  } else if (ed.dirty) {
+    const leave = await confirmBox('Discard changes?', 'You have unsaved changes.', 'DISCARD', true);
+    if (!leave) return false;
+  }
+  C.ed = null;
+  if (reload) { try { await loadTrainee(C.tr); } catch (_) { /* keep old data */ } }
+  return true;
+}
+
+// field edits (no re-render, keeps keyboard open)
+INP['c.title'] = (el) => { C.ed.title = el.value; edChanged(false); };
+INP['c.dayName'] = (el) => { const d = C.ed.days.find((x) => x.id === el.dataset.day); if (d) { d.name = el.value; edChanged(false); } };
+INP['c.slotNote'] = (el) => { const s = slotById(el.dataset.slot); if (s) { s.note = el.value; edChanged(false); } };
+INP['c.slotRepsIn'] = (el) => {
+  const s = slotById(el.dataset.slot);
+  if (!s) return;
+  const v = el.value.replace(/[^\d-]/g, '');
+  if (v !== el.value) el.value = v;
+  if (!v) return;
+  s.reps = v;
+  el.classList.add('on');
+  el.parentElement.querySelectorAll('.seg button[data-a="c.slotReps"]').forEach((b) => b.classList.toggle('on', b.dataset.v === v));
+  edChanged(false);
+};
+function slotById(id) { return C.ed.slots.find((s) => s.slot === id) || null; }
+
+ACT['c.weeks'] = (ds) => { const ed = C.ed; ed.weeks = Math.min(12, Math.max(1, ed.weeks + +ds.dir)); edChanged(true); };
+ACT['c.addDay'] = () => { const ed = C.ed; ed.days.push({ id: 'D' + rand(6), name: 'Day ' + (ed.days.length + 1) }); edChanged(true); };
+ACT['c.dayMove'] = (ds) => {
+  const ed = C.ed, i = ed.days.findIndex((d) => d.id === ds.day), j = i + +ds.dir;
+  if (i < 0 || j < 0 || j >= ed.days.length) return;
+  const t = ed.days[i]; ed.days[i] = ed.days[j]; ed.days[j] = t;
+  edChanged(true);
+};
+ACT['c.dayDup'] = (ds) => {
+  const ed = C.ed;
+  if (ed.days.length >= 7) return toast('Maximum 7 days');
+  const i = ed.days.findIndex((d) => d.id === ds.day);
+  const src = ed.days[i];
+  const nd = { id: 'D' + rand(6), name: src.name + ' 2' };
+  ed.days.splice(i + 1, 0, nd);
+  ed.slots.filter((s) => s.day === src.id).forEach((s) => ed.slots.push(Object.assign({}, s, { slot: 'S' + rand(8), day: nd.id })));
+  edChanged(true);
+};
+ACT['c.dayDel'] = async (ds) => {
+  const ed = C.ed;
+  const d = ed.days.find((x) => x.id === ds.day);
+  if (!d) return;
+  if (ed.days.length <= 1) return toast('A mesocycle needs at least one day');
+  const n = ed.slots.filter((s) => s.day === d.id).length;
+  if (n && !(await confirmBox('Delete day?', `"${d.name}" and its ${n} exercises will be removed.`, 'DELETE', true))) return;
+  ed.days = ed.days.filter((x) => x.id !== d.id);
+  ed.slots = ed.slots.filter((s) => s.day !== d.id);
+  edChanged(true);
+};
+ACT['c.addSlot'] = (ds) => openPicker((exId) => {
+  const ed = C.ed;
+  const pos = ed.slots.filter((s) => s.day === ds.day).reduce((a, s) => Math.max(a, s.pos), 0) + 1;
+  ed.slots.push({ slot: 'S' + rand(8), day: ds.day, pos, ex: exId, sets: 2, reps: '8-10', note: '' });
+  edChanged(true);
+});
+ACT['c.slotEx'] = (ds) => openPicker((exId) => { const s = slotById(ds.slot); if (s) { s.ex = exId; edChanged(true); } });
+ACT['c.slotSets'] = (ds) => { const s = slotById(ds.slot); if (s) { s.sets = +ds.v; edChanged(true); } };
+ACT['c.slotReps'] = (ds) => { const s = slotById(ds.slot); if (s) { s.reps = ds.v; edChanged(true); } };
+ACT['c.slotMove'] = (ds) => {
+  const ed = C.ed, s = slotById(ds.slot);
+  if (!s) return;
+  const list = ed.slots.filter((x) => x.day === s.day).sort((a, b) => a.pos - b.pos);
+  const i = list.indexOf(s), j = i + +ds.dir;
+  if (j < 0 || j >= list.length) return;
+  const p = list[i].pos; list[i].pos = list[j].pos; list[j].pos = p;
+  edChanged(true);
+};
+ACT['c.slotDup'] = (ds) => {
+  const ed = C.ed, s = slotById(ds.slot);
+  if (!s) return;
+  ed.slots.filter((x) => x.day === s.day && x.pos > s.pos).forEach((x) => { x.pos++; });
+  ed.slots.push(Object.assign({}, s, { slot: 'S' + rand(8), pos: s.pos + 1 }));
+  edChanged(true);
+};
+ACT['c.slotDel'] = (ds) => { const ed = C.ed; ed.slots = ed.slots.filter((x) => x.slot !== ds.slot); edChanged(true); };
+
+ACT['c.publish'] = async (ds, el) => {
+  const ed = C.ed;
+  const v = edValidate(ed);
+  if (v) return toast(v);
+  const empty = ed.days.filter((d) => !ed.slots.some((s) => s.day === d.id)).map((d) => d.name);
+  if (empty.length) return toast('Add exercises to: ' + empty.join(', '));
+  if (!(await confirmBox('Publish?', 'The trainee will see this mesocycle in the app.', 'PUBLISH'))) return;
+  el.disabled = true;
+  if (!(await waitSaved(ed, 15000))) { el.disabled = false; return toast(ed.err || 'Not saved yet — try again'); }
+  try {
+    await coachPost({ t: 'publishMeso', id: ed.id });
+    C.ed = null;
+    toast('Published ✓');
+    Nav.back();
+  } catch (err) { el.disabled = false; toast(errText(err)); }
+};
+
+ACT['c.savePub'] = async (ds, el) => {
+  const ed = C.ed;
+  const v = edValidate(ed);
+  if (v) return toast(v);
+  const lines = ed.days.filter((d) => ed.origDays.indexOf(d.id) >= 0).map((d) => {
+    const fw = ed.eff[d.id] || 1;
+    return `${d.name}: ${fw > ed.weeks ? 'no weeks left' : 'from week ' + (ed.startWeek + fw - 1)}`;
+  });
+  if (!(await confirmBox('Save changes?', 'Logged sessions stay as they are. ' + lines.join(' · '), 'SAVE'))) return;
+  el.disabled = true;
+  try {
+    const res = await coachPost({ t: 'saveMeso', key: ed.key, meso: edPayload(ed) });
+    ed.dirty = false;
+    await loadTrainee(C.tr);
+    const skipped = (res.noEffect || []).length;
+    toast(skipped ? 'Saved — some days had no weeks left' : 'Saved ✓');
+    openEditor(ed.id);
+  } catch (err) { el.disabled = false; toast(errText(err)); }
+};
+
+ACT['c.copyTo'] = async () => {
+  const ed = C.ed;
+  if (ed.status === 'draft' && !(await waitSaved(ed, 15000))) return toast(ed.err || 'Not saved yet — try again');
+  if (ed.status === 'published' && ed.dirty) return toast('Save your changes first');
+  openModal(`<h3>Copy to trainee</h3><p class="muted">Creates a new draft for the trainee you choose.</p>
+    ${C.dash.trainees.map((t) => `<div class="list-item" data-a="c.copyToGo" data-key="${esc(t.key)}"><div class="grow"><b>${esc(t.name)}</b>${t.key === C.tr ? ' <span class="tag">THIS TRAINEE</span>' : ''}</div>›</div>`).join('')}
+    <button class="btn ghost" data-a="modal.no">CANCEL</button>`);
+};
+ACT['c.copyToGo'] = async (ds) => {
+  closeModal();
+  try {
+    await coachPost({ t: 'copyMeso', fromId: C.ed.id, toKey: ds.key });
+    const t = trOf(ds.key);
+    toast('Draft created for ' + (t ? t.name : 'trainee'));
+    if (ds.key === C.tr) await loadTrainee(C.tr);
+  } catch (err) { toast(errText(err)); }
+};
+
+ACT['c.delMeso'] = async () => {
+  const ed = C.ed;
+  if (!(await confirmBox('Delete?', 'This cannot be undone.', 'DELETE', true))) return;
+  clearTimeout(C.saveTimer);
+  if (ed.status === 'draft' && !ed.id) { ed.dirty = false; C.ed = null; Nav.back(); return; }
+  if (ed.saving) await waitSaved(ed, 15000);
+  try {
+    await coachPost({ t: 'deleteMeso', id: ed.id });
+    ed.dirty = false;
+    C.ed = null;
+    toast('Deleted');
+    Nav.back();
+  } catch (err) { toast(errText(err)); }
+};
+
+/* ---------- exercise picker + exercise form ---------- */
+function openPicker(onPick) {
+  C.pick = { q: '', onPick };
+  openModal(`<h3>Choose exercise</h3><input class="in" id="pickQ" placeholder="Search…" data-in="c.pickQ" autocomplete="off">
+    <div id="pickList"></div><button class="btn ghost" data-a="c.newEx">+ NEW EXERCISE</button><button class="btn ghost" data-a="modal.no">CANCEL</button>`);
+  renderPickList();
+}
+function renderPickList() {
+  const q = C.pick.q.toLowerCase();
+  const list = C.dash.exercises.filter((x) => x.active && (!q || x.name.toLowerCase().indexOf(q) >= 0 || (x.muscle || '').indexOf(C.pick.q) >= 0));
+  const groups = {};
+  list.forEach((x) => { (groups[x.muscle || 'Other'] = groups[x.muscle || 'Other'] || []).push(x); });
+  const html = Object.keys(groups).map((g) => `<div class="grp">${esc(g)}</div>` +
+    groups[g].map((x) => `<div class="list-item" data-a="c.pickEx" data-id="${esc(x.id)}"><div class="grow">${esc(x.name)}</div>${x.video ? '▶' : ''}</div>`).join('')).join('');
+  $('#pickList').innerHTML = html || '<p class="muted">No match.</p>';
+}
+INP['c.pickQ'] = (el) => { C.pick.q = el.value.trim(); renderPickList(); };
+ACT['c.pickEx'] = (ds) => { const fn = C.pick && C.pick.onPick; closeModal(); C.pick = null; if (fn) fn(ds.id); };
+ACT['c.newEx'] = () => exForm(null, C.pick ? C.pick.q : '');
+
+function exForm(x, name) {
+  const muscles = Array.from(new Set(C.dash.exercises.map((e) => e.muscle).filter(Boolean)));
+  const keepPick = C.pick;
+  openModal(`<h3>${x ? 'Edit exercise' : 'New exercise'}</h3>
+    <div class="lbl">Name</div><input class="in" id="exName" maxlength="80" value="${esc(x ? x.name : name || '')}">
+    <div class="lbl">Muscle</div><input class="in" id="exMuscle" list="muscleList" maxlength="40" value="${esc(x ? x.muscle : '')}">
+    <datalist id="muscleList">${muscles.map((mm) => `<option value="${esc(mm)}">`).join('')}</datalist>
+    <div class="lbl">Video link (optional)</div><input class="in" id="exVideo" maxlength="500" placeholder="https://…" value="${esc(x ? x.video : '')}">
+    <label class="check"><input type="checkbox" id="exPrime" ${x && x.prime ? 'checked' : ''}> Prime (two weight boxes)</label>
+    ${x ? `<label class="check"><input type="checkbox" id="exActive" ${x.active ? 'checked' : ''}> Show in the list</label>` : ''}
+    <div class="err" id="exErr"></div>
+    <button class="btn" data-a="c.saveEx" data-id="${x ? esc(x.id) : ''}">SAVE</button><button class="btn ghost" data-a="modal.no">CANCEL</button>`);
+  C.pick = keepPick;
+}
+ACT['c.saveEx'] = async (ds, el) => {
+  const op = { t: 'saveExercise', id: ds.id || '', name: $('#exName').value.trim(), muscle: $('#exMuscle').value.trim(),
+               video: $('#exVideo').value.trim(), prime: $('#exPrime').checked, active: $('#exActive') ? $('#exActive').checked : true };
+  if (!op.name) { $('#exErr').textContent = 'Name is required.'; return; }
+  if (op.video && !/^https?:\/\//i.test(op.video)) { $('#exErr').textContent = 'The video must be a link starting with https://'; return; }
+  el.disabled = true;
+  try {
+    const res = await coachPost(op);
+    const x = res.exercise;
+    const i = C.dash.exercises.findIndex((e) => e.id === x.id);
+    if (i >= 0) C.dash.exercises[i] = x; else C.dash.exercises.push(x);
+    C.exMap[x.id] = x;
+    if (C.D) C.D.exMap[x.id] = x;
+    const pick = C.pick;
+    closeModal();
+    toast('Saved');
+    if (pick && !ds.id) { C.pick = null; pick.onPick(x.id); }
+    else if (C.screen === 'exercises') renderExList();
+    else if (C.screen === 'editor') renderEditor(true);
+  } catch (err) { $('#exErr').textContent = errText(err); el.disabled = false; }
+};
+
+ACT['c.exList'] = () => { C.screen = 'exercises'; C.exQ = ''; Nav.push(); renderExList(); };
+function renderExList() {
+  hdr({ title: 'EXERCISES', back: true });
+  main(`<input class="in" placeholder="Search…" data-in="c.exQ" value="${esc(C.exQ || '')}" autocomplete="off">
+    <button class="btn" data-a="c.newEx2">+ NEW EXERCISE</button><div id="exListBox"></div>`, true);
+  renderExListBox();
+}
+function renderExListBox() {
+  const q = (C.exQ || '').toLowerCase();
+  const list = C.dash.exercises.filter((x) => !q || x.name.toLowerCase().indexOf(q) >= 0 || (x.muscle || '').indexOf(C.exQ) >= 0)
+    .slice().sort((a, b) => (a.muscle || '').localeCompare(b.muscle || '') || a.name.localeCompare(b.name));
+  $('#exListBox').innerHTML = list.map((x) => `<div class="list-item" data-a="c.editEx" data-id="${esc(x.id)}" style="${x.active ? '' : 'opacity:.45'}">
+    <div class="grow"><b>${esc(x.name)}</b><div class="sub">${esc(x.muscle || '—')}${x.prime ? ' · PRIME' : ''}${x.video ? ' · ▶ video' : ' · no video'}</div></div>›</div>`).join('');
+}
+INP['c.exQ'] = (el) => { C.exQ = el.value.trim(); renderExListBox(); };
+ACT['c.newEx2'] = () => { C.pick = null; exForm(null, ''); };
+ACT['c.editEx'] = (ds) => { C.pick = null; exForm(C.dash.exercises.find((x) => x.id === ds.id), ''); };
+
+/* ---------- weekly review (read logs + write coach notes) ---------- */
+ACT['c.review'] = async () => {
+  main('<div class="spin"></div>');
+  try { await loadTrainee(C.tr); } catch (err) { toast(errText(err)); }
+  C.screen = 'review';
+  C.rv = { wi: currentWeekIndex(C.D), drafts: {} };
+  Nav.push();
+  renderReview();
+};
+function renderReview(keepScroll) {
+  const D = C.D;
+  hdr({ title: 'REVIEW · ' + (trOf(C.tr) || D.trainee).name, back: true });
+  if (!D.weeks.length) return main('<div class="empty"><p>No published mesocycle.</p></div>');
+  const wk = D.weeks[C.rv.wi], m = D.mesoById[wk.meso];
+  const opts = D.weeks.map((x, i) => `<option value="${i}" ${i === C.rv.wi ? 'selected' : ''}>WEEK ${x.g} · M${D.mesoById[x.meso].num}</option>`).join('');
+  const days = m.days.map((d) => {
+    const items = resolveDay(D, m, wk.w, d.id);
+    const st = dayStatus(D, m, wk.w, d.id);
+    return `<div class="box review st-${st}"><div class="ttl">${esc(d.name)}</div>` + items.map((it) => {
+      const e = entryOf(D, m.id, wk.w, it.slot) || {};
+      const est = exStatus(D, m.id, wk.w, it);
+      let sets = '';
+      for (let n = 1; n <= it.sets; n++) {
+        const s = setOf(D, m.id, wk.w, it.slot, n);
+        const ss = setState(s);
+        sets += `<span class="tag ${ss === 'done' ? 'green' : ss === 'skip' ? 'red' : ''}">${ss === 'skip' ? 'SKIP' : ss === 'empty' ? '—' : esc((s.kg || '—') + '×' + (s.reps || '—'))}</span>`;
+      }
+      const reasons = [];
+      if ((e.status === 'skip' || e.status === 'skipday') && e.reason) reasons.push('Skipped: ' + e.reason);
+      for (let n = 1; n <= it.sets; n++) { const s = setOf(D, m.id, wk.w, it.slot, n); if (s && isSkip(s.status) && s.reason && reasons.indexOf('Skipped set: ' + s.reason) < 0) reasons.push('Skipped set: ' + s.reason); }
+      const k = ek(m.id, wk.w, it.slot);
+      const draft = k in C.rv.drafts ? C.rv.drafts[k] : (e.cnote || '');
+      const order = e.order && e.order !== it.planned ? ` <span class="tag amber">DONE #${e.order}</span>` : '';
+      return `<div class="it"><div class="row"><b class="grow">${it.planned}. ${esc(exInfo(D, it.ex).name)}</b><span class="tag ${est === 'done' ? 'green' : est === 'skip' ? 'red' : ''}">${esc(it.sets + '×' + it.reps)}</span>${order}</div>
+        <div class="chipline">${sets}</div>
+        ${reasons.map((r) => `<div class="sub" style="color:#fca5a5">${esc(r)}</div>`).join('')}
+        ${e.tnote ? `<div class="sub">Trainee: ${esc(e.tnote)}</div>` : ''}
+        <div class="row" style="margin-top:6px"><input class="in note" placeholder="Coach note for this week…" value="${esc(draft)}" maxlength="1000" data-in="c.rvNote" data-k="${esc(k)}">
+        <button class="pill blue" data-a="c.rvSave" data-slot="${esc(it.slot)}" data-k="${esc(k)}">SAVE</button></div></div>`;
+    }).join('') + '</div>';
+  }).join('');
+  main(`<select class="wsel in" data-ch="c.rvWeek" style="margin-bottom:10px">${opts}</select>
+    <p class="dim" style="font-size:12px;margin-top:0">A coach note shows under the exercise in the trainee’s app from this week on, until you write a new one.</p>${days}`, keepScroll);
+}
+CHG['c.rvWeek'] = (el) => { C.rv.wi = +el.value; renderReview(); };
+INP['c.rvNote'] = (el) => { C.rv.drafts[el.dataset.k] = el.value; };
+ACT['c.rvSave'] = async (ds, el) => {
+  const D = C.D, wk = D.weeks[C.rv.wi], m = D.mesoById[wk.meso];
+  const it = m.days.reduce((a, d) => a.concat(resolveDay(D, m, wk.w, d.id)), []).find((x) => x.slot === ds.slot);
+  const existing = (D.entries[ds.k] || {}).cnote || '';
+  const text = (ds.k in C.rv.drafts ? C.rv.drafts[ds.k] : existing).trim();
+  el.disabled = true;
+  try {
+    await coachPost({ t: 'coachNote', key: C.tr, meso: m.id, week: wk.w, slot: ds.slot, ex: it ? it.ex : '', text });
+    const e = D.entries[ds.k] || { meso: m.id, week: wk.w, slot: ds.slot, day: it ? it.day : '', ex: it ? it.ex : '', order: 0, status: '', reason: '', tnote: '', cnote: '' };
+    e.cnote = text;
+    D.entries[ds.k] = e;
+    delete C.rv.drafts[ds.k];
+    toast('Note saved');
+  } catch (err) { toast(errText(err)); }
+  el.disabled = false;
+};
+
+/* ======================================================================
+   BOOT
+   ====================================================================== */
+(function boot() {
+  const p = new URLSearchParams(location.search);
+  const k = (p.get('k') || '').trim();
+  const c = (p.get('c') || '').trim();
+  if (c) return bootCoach(c);
+  if (k) return bootTrainee(k);
+  renderMessage('Link not valid', 'Open the app using the link your coach sent you.');
+})();
 </script>
 </body>
 </html>
