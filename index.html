@@ -68,6 +68,44 @@ button:disabled{opacity:.35;cursor:default}
 .task{display:flex;gap:8px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
 .task:first-child{border-top:none}
 .task.closed{opacity:.5}
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tab{flex:1;position:relative;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 6px;font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--muted)}
+.tab.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.tab .cnt{display:block;font-size:17px;margin-top:2px;color:inherit}
+.tab .dot{position:absolute;top:6px;right:8px;width:9px;height:9px;border-radius:50%;background:var(--red)}
+.sec{border:1px solid var(--line);border-radius:12px;margin-bottom:8px;overflow:hidden}
+.sec-h{width:100%;display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--card);border:none;font-weight:800;letter-spacing:.04em;text-align:left;color:var(--text)}
+.sec-b{padding:0 12px 10px;background:var(--card)}
+.item{display:flex;align-items:center;gap:8px;padding:11px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.item:last-child{border-bottom:none}
+.edday{display:block}
+.edday-h{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+.edday-h .in{flex:1;min-width:0;padding:9px 10px;font-weight:800}
+.edday-a{display:flex;gap:6px;justify-content:flex-end;margin:-2px 0 6px}
+.slot{border-top:1px solid var(--line);padding:10px 0}
+.slot-h{display:flex;gap:6px;align-items:center}
+.num{min-width:26px;height:26px;border-radius:8px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.exbtn{flex:1;min-width:0;text-align:left;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-weight:700;white-space:normal;line-height:1.3}
+.slot-b{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.slot-f{display:flex;gap:6px;align-items:center}
+.slot-f .in{flex:1;min-width:0;padding:8px 10px;font-size:14px}
+.slot-f .sq{width:30px;height:30px;font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:none;background:var(--card2);padding:8px 10px;font-weight:700;font-size:13px;border-right:1px solid var(--line);color:var(--text)}
+.seg button:last-child{border-right:none}
+.seg button.on{background:var(--blue)}
+.seg.wide{display:flex;width:100%}.seg.wide button{flex:1;padding:10px 0}
+.opt{display:block;width:100%;text-align:left;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);margin-bottom:6px;font-weight:700;color:var(--text)}
+.opt.on{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue) inset}
+.in.reps{width:74px;padding:8px}
+.savebar{font-size:12px;color:var(--muted);text-align:center;margin:4px 0 10px}
+.savebar.bad{color:#fca5a5}
+.sumgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.sumrow{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
+.sumday{border-top:1px solid var(--line);padding:8px 0}
+.sumline{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:2px 0}
+.tag{font-size:11px;font-weight:800;border-radius:6px;padding:3px 7px;background:var(--card2);color:var(--muted)}
+.tag.green{background:rgba(34,197,94,.16);color:#86efac}.tag.amber{background:rgba(245,158,11,.16);color:#fcd34d}
 .logo{font-size:26px;font-weight:900;letter-spacing:2px;color:var(--blue);text-align:center;margin:40px 0 6px}
 .center{text-align:center}
 </style>
@@ -203,6 +241,12 @@ const SB = {
       body: rows
     });
   },
+  async del(table, eq) {
+    await SB.ready();
+    const p = new URLSearchParams();
+    Object.keys(eq).forEach((k) => p.set(k, 'eq.' + eq[k]));
+    return SB.call('/rest/v1/' + table + '?' + p.toString(), { method: 'DELETE' });
+  },
   async upd(table, eq, patch) {
     await SB.ready();
     const p = new URLSearchParams();
@@ -232,8 +276,16 @@ ACT['modal.yes'] = () => modalDone(true);
 ACT['modal.no'] = () => modalDone(null);
 ACT['nav.back'] = () => back();
 
-function back() {
-  if (A.screen === 'trainee') { A.tr = null; A.trData = null; return renderHome(); }
+async function back() {
+  if (A.screen === 'editor') {
+    const ed = A.ed;
+    if (ed && ed.status === 'draft' && (ed.dirty || ed.saving)) { await saveDraft(ed); }
+    A.ed = null;
+    A.screen = 'trainee';
+    return renderTrainee();
+  }
+  if (A.screen === 'lib') { A.screen = 'home'; A.lib = null; return renderHome(); }
+  if (A.screen === 'trainee') { A.tr = null; A.trData = null; A.screen = 'home'; return renderHome(); }
 }
 
 /* ======================================================================
@@ -326,12 +378,19 @@ function group(p) {
   return 'ACTIVE';
 }
 
+const GROUPS = ['ACTIVE', 'NEW', 'EXPIRED'];
+function seenMap() { return LS.get('hj_seen', {}) || {}; }
+function markSeen(g, ids) { const m = seenMap(); m[g] = ids; LS.set('hj_seen', m); }
 function renderHome() {
   A.screen = 'home';
   hdr({ title: 'HAJIME · COACH', right: `<button class="hbtn" data-a="home.reload" aria-label="Refresh">↻</button><button class="hbtn txt" data-a="auth.out">EXIT</button>` });
   const list = trainees();
   const groups = { ACTIVE: [], NEW: [], EXPIRED: [] };
   list.forEach((p) => groups[group(p)].push(p));
+  if (!A.tab) A.tab = 'ACTIVE';
+  const seen = seenMap();
+  const isNewIn = (g) => groups[g].some((p) => !(seen[g] || []).includes(p.id));
+  markSeen(A.tab, groups[A.tab].map((p) => p.id));
   const card = (p) => {
     const c = checkInfo(p), s = subInfo(p), w = weekInfo(p), n = openTasks(p.id);
     return `<div class="card" data-a="tr.open" data-id="${esc(p.id)}">
@@ -344,11 +403,13 @@ function renderHome() {
         </div></div>
       ${n ? `<span class="badge">${n}</span>` : ''}</div>`;
   };
-  const section = (name) => `<div class="grpttl"><span>${name}</span><span>${groups[name].length}</span></div>
-    <div class="list">${groups[name].map(card).join('') || '<div class="card muted">None</div>'}</div>`;
-  main(`<button class="btn" data-a="tr.add">+ TRAINEE</button>
-    ${section('ACTIVE')}${section('NEW')}${section('EXPIRED')}`);
+  const tabs = GROUPS.map((g) => `<button class="tab ${A.tab === g ? 'on' : ''}" data-a="home.tab" data-g="${g}">${g}
+      <span class="cnt">${groups[g].length}</span>${g !== A.tab && isNewIn(g) ? '<span class="dot"></span>' : ''}</button>`).join('');
+  main(`<div class="tabs">${tabs}</div>
+    <div class="list">${groups[A.tab].map(card).join('') || '<div class="card muted">None here.</div>'}</div>
+    <button class="btn ghost" data-a="lib.open">EXERCISE LIBRARY</button>`);
 }
+ACT['home.tab'] = (ds) => { A.tab = ds.g; renderHome(); };
 ACT['home.reload'] = async () => { main('<div class="spin"></div>'); await loadDash(); renderHome(); };
 ACT['tr.add'] = () => openModal(`<h3>New trainee</h3><p class="muted">Creating accounts comes with the next step. For now add the account from your database dashboard, and it shows up here.</p>
   <button class="btn ghost" data-a="modal.no">OK</button>`);
@@ -360,12 +421,13 @@ ACT['tr.open'] = async (ds) => {
   main('<div class="spin"></div>');
   A.tr = trainees().find((p) => p.id === ds.id);
   try {
-    const [tasks, checkins, weeks] = await Promise.all([
+    const [tasks, checkins, weeks, mesos] = await Promise.all([
       SB.sel('tasks', { eq: { trainee_id: A.tr.id }, order: 'created_at.desc' }),
       SB.sel('checkins', { eq: { trainee_id: A.tr.id }, order: 'day.desc', limit: 14 }),
-      SB.sel('weeks', { eq: { trainee_id: A.tr.id }, order: 'week_start.desc', limit: 8 })
+      SB.sel('weeks', { eq: { trainee_id: A.tr.id }, order: 'week_start.desc', limit: 8 }),
+      SB.sel('mesocycles', { eq: { trainee_id: A.tr.id }, order: 'num.asc' })
     ]);
-    A.trData = { tasks, checkins, weeks };
+    A.trData = { tasks, checkins, weeks, mesos };
     A.screen = 'trainee';
     renderTrainee();
   } catch (err) { toast(err.message); renderHome(); }
@@ -412,8 +474,12 @@ function renderTrainee() {
       <textarea class="ta" data-in="tr.note" placeholder="Private notes about this trainee…">${esc(p.coach_note || '')}</textarea>
       <button class="btn sm ghost" data-a="tr.noteSave">SAVE NOTES</button></div>
 
+    <div class="box"><div class="lbl" style="margin-top:0">Program</div>
+      <button class="btn sm" data-a="meso.new">+ NEW MESOCYCLE</button>
+      <div id="mesoList">${mesoCards()}</div></div>
+
     <div class="box"><div class="lbl" style="margin-top:0">Coming next</div>
-      <div class="sub">Weekly report · gym performance · mesocycle · profile and photos</div></div>`);
+      <div class="sub">Weekly report · gym performance · profile and photos</div></div>`);
 }
 
 ACT['task.add'] = () => openModal(`<h3>Next step</h3>
@@ -479,6 +545,515 @@ ACT['tr.noteSave'] = async (ds, el) => {
   try { await SB.upd('profiles', { id: A.tr.id }, { coach_note: A.noteDraft ?? A.tr.coach_note }); A.tr.coach_note = A.noteDraft ?? A.tr.coach_note; toast('Notes saved'); }
   catch (err) { toast(err.message); }
   el.disabled = false;
+};
+
+function mesoCards() {
+  const list = (A.trData.mesos || []).slice().sort((a, b) => b.num - a.num);
+  if (!list.length) return '<div class="muted" style="padding:8px 0">No mesocycle yet.</div>';
+  return list.map((m) => {
+    const pub = m.status === 'published';
+    return `<div class="item" data-a="meso.open" data-id="${m.id}"><div class="grow">
+      <div class="ttl">Mesocycle ${m.num}${m.title ? ' · ' + esc(m.title) : ''}</div>
+      <div class="sub">${m.weeks} weeks${pub ? ' · weeks ' + m.start_week + '–' + (m.start_week + m.weeks - 1) : ''} · ${(m.days || []).length} days</div></div>
+      <span class="tag ${pub ? 'green' : 'amber'}">${pub ? 'PUBLISHED' : 'DRAFT'}</span></div>`;
+  }).join('');
+}
+
+/* ======================================================================
+   EXERCISE LIBRARY
+   ====================================================================== */
+const PARTS = ['Forearms','Biceps','Front Delts','Side Delts','Upper Chest','Mid Chest','Abs','Triceps','Rear Delts','Scapula',
+               'Upper Back','Upper Lats','Lower Lats','Lower Back','Adductors','Quads','Calves','Hamstrings','Glutes'];
+const OTHER = 'Other';
+async function loadEx(force) {
+  if (A.ex && !force) return A.ex;
+  A.ex = await SB.sel('exercises', { order: 'name.asc' });
+  return A.ex;
+}
+function exById(id) { return (A.ex || []).find((x) => String(x.id) === String(id)) || null; }
+function secId(pt) { return 'sec-' + pt.replace(/[^a-z0-9]+/gi, '-').toLowerCase(); }
+function libParts() {
+  const p = PARTS.slice();
+  if ((A.ex || []).some((x) => !PARTS.includes(x.part))) p.push(OTHER);
+  return p;
+}
+function inPart(x, pt) { return pt === OTHER ? !PARTS.includes(x.part) : (x.part === pt || x.part2 === pt); }
+
+ACT['lib.open'] = async () => {
+  main('<div class="spin"></div>');
+  try { await loadEx(true); } catch (err) { toast(err.message); return renderHome(); }
+  A.screen = 'lib';
+  A.lib = { mode: 'manage', q: '', open: {}, edit: false, hidden: false };
+  hdr({ title: 'EXERCISES', back: true });
+  main(`<input class="in" id="libQ" placeholder="Search…" data-in="lib.q" autocomplete="off" style="margin-bottom:10px">
+    <div class="row" style="margin-bottom:10px" id="libBar"></div><div id="libList"></div>`);
+  renderLib();
+};
+function openPicker(onPick) {
+  A.lib = { mode: 'pick', onPick, q: '', open: {}, edit: false, hidden: false };
+  openModal(`<h3>Choose exercise</h3>
+    <input class="in" id="libQ" placeholder="Search…" data-in="lib.q" autocomplete="off" style="margin-bottom:10px">
+    <div class="row" style="margin-bottom:10px" id="libBar"></div><div id="libList"></div>
+    <button class="btn ghost" data-a="modal.no">CANCEL</button>`);
+  renderLib();
+}
+function renderLib() {
+  const L = A.lib, box = $('#libList');
+  if (!L || !box) return;
+  $('#libBar').innerHTML = `<button class="pill ${L.edit ? 'blue' : ''}" data-a="lib.edit">${L.edit ? 'DONE EDITING' : 'EDIT LIBRARY'}</button>
+    <button class="pill ${L.hidden ? 'blue' : ''}" data-a="lib.hidden">${L.hidden ? 'HIDE HIDDEN' : 'SHOW HIDDEN'}</button>`;
+  const q = (L.q || '').toLowerCase();
+  box.innerHTML = libParts().map((pt) => {
+    let list = (A.ex || []).filter((x) => inPart(x, pt) && (L.hidden || x.active));
+    if (q) list = list.filter((x) => x.name.toLowerCase().includes(q));
+    if (q && !list.length) return '';
+    const open = q ? true : !!L.open[pt];
+    const rows = list.map((x) => {
+      const acts = L.edit
+        ? `<button class="pill" data-a="lib.act" data-id="${x.id}">${x.active ? 'HIDE' : 'SHOW'}</button><button class="pill red" data-a="lib.del" data-id="${x.id}">DELETE</button>`
+        : '›';
+      return `<div class="item" data-a="lib.item" data-id="${x.id}" style="${x.active ? '' : 'opacity:.5'}">
+        <div class="grow">${esc(x.name)}${x.active ? '' : ' <span class="tag">HIDDEN</span>'}
+        <div class="sub">${[x.prime ? 'PRIME' : '', x.video ? '▶ video' : 'no video', x.part !== pt && pt !== OTHER ? 'counted in ' + x.part : ''].filter(Boolean).map(esc).join(' · ')}</div></div>${acts}</div>`;
+    }).join('');
+    return `<div class="sec" id="${secId(pt)}"><button class="sec-h" data-a="lib.toggle" data-part="${esc(pt)}"><span>${open ? '▾' : '▸'} ${esc(pt)}</span><span class="muted">${list.length}</span></button>
+      ${open ? `<div class="sec-b">${rows || '<div class="sub" style="padding:8px 0">No exercises yet.</div>'}
+        ${pt !== OTHER ? `<button class="btn sm ghost" data-a="lib.add" data-part="${esc(pt)}">+ ADD EXERCISE</button>` : ''}</div>` : ''}</div>`;
+  }).join('') || '<p class="muted">No match.</p>';
+}
+INP['lib.q'] = (el) => { A.lib.q = el.value.trim(); renderLib(); };
+ACT['lib.toggle'] = (ds) => { A.lib.open[ds.part] = !A.lib.open[ds.part]; renderLib(); };
+ACT['lib.edit'] = () => { A.lib.edit = !A.lib.edit; renderLib(); };
+ACT['lib.hidden'] = () => { A.lib.hidden = !A.lib.hidden; renderLib(); };
+ACT['lib.item'] = (ds) => {
+  const x = exById(ds.id);
+  if (!x) return;
+  if (A.lib.mode === 'pick' && !A.lib.edit) { const fn = A.lib.onPick; closeModal(); A.lib = null; return fn && fn(x.id); }
+  exForm(x, '');
+};
+ACT['lib.add'] = (ds) => exForm(null, ds.part);
+ACT['lib.act'] = async (ds, el) => {
+  const x = exById(ds.id);
+  el.disabled = true;
+  try { await SB.upd('exercises', { id: x.id }, { active: !x.active }); x.active = !x.active; toast(x.active ? 'Shown' : 'Hidden'); }
+  catch (err) { toast(err.message); }
+  renderLib();
+};
+ACT['lib.del'] = async (ds) => {
+  const x = exById(ds.id);
+  const L = A.lib;
+  const yes = await confirmBox('Delete exercise?', esc(x.name) + ' will be removed for good.', 'DELETE', true);
+  if (L.mode === 'pick') { openPickerAgain(L); }
+  if (!yes) return;
+  try {
+    const used = await SB.sel('plan', { select: 'id', eq: { ex_id: x.id }, limit: 1 });
+    const logged = await SB.sel('sets_log', { select: 'id', eq: { ex_id: x.id }, limit: 1 });
+    if (used.length || logged.length) return toast('Used in a program or has history — hide it instead');
+    await SB.del('exercises', { id: x.id });
+    A.ex = A.ex.filter((e) => e.id !== x.id);
+    toast('Deleted');
+  } catch (err) { toast(err.message); }
+  renderLib();
+};
+function openPickerAgain(L) { openPicker(L.onPick); A.lib.q = L.q; A.lib.open = L.open; A.lib.edit = L.edit; A.lib.hidden = L.hidden; renderLib(); }
+function exForm(x, part) {
+  const keep = A.lib;
+  const o = (v, sel, label) => `<option value="${esc(v)}" ${v === sel ? 'selected' : ''}>${esc(label || v)}</option>`;
+  openModal(`<h3>${x ? 'Edit exercise' : 'New exercise'}</h3>
+    <div class="lbl">Name</div><input class="in" id="exName" maxlength="80" value="${esc(x ? x.name : '')}">
+    <div class="lbl">Muscle part</div><select class="in" id="exPart">${PARTS.map((p) => o(p, x ? x.part : part)).join('')}</select>
+    <div class="lbl">Also listed in (optional)</div><select class="in" id="exPart2">${o('', x ? x.part2 : '', '—')}${PARTS.map((p) => o(p, x ? x.part2 : '')).join('')}</select>
+    <div class="lbl">Video link (optional)</div><input class="in" id="exVideo" maxlength="500" placeholder="https://…" value="${esc(x ? x.video : '')}">
+    <label class="row" style="margin:10px 2px"><input type="checkbox" id="exPrime" ${x && x.prime ? 'checked' : ''} style="width:18px;height:18px"> <span class="muted">Prime (two weight boxes)</span></label>
+    ${x ? '<p class="sub">Renaming keeps all logged history — it stays the same exercise.</p>' : ''}
+    <div class="err" id="exErr"></div>
+    <button class="btn" data-a="lib.save" data-id="${x ? x.id : ''}">SAVE</button><button class="btn ghost" data-a="lib.back">CANCEL</button>`);
+  A.lib = keep;
+}
+ACT['lib.back'] = () => { const L = A.lib; closeModal(); if (L && L.mode === 'pick') openPickerAgain(L); else renderLib(); };
+ACT['lib.save'] = async (ds, el) => {
+  const row = { name: $('#exName').value.trim(), part: $('#exPart').value, part2: $('#exPart2').value, video: $('#exVideo').value.trim(), prime: $('#exPrime').checked };
+  if (!row.name) { $('#exErr').textContent = 'Name is required.'; return; }
+  if (row.part2 === row.part) row.part2 = '';
+  if (row.video && !/^https?:\/\//i.test(row.video)) { $('#exErr').textContent = 'The video must be a link starting with https://'; return; }
+  el.disabled = true;
+  const L = A.lib;
+  try {
+    let saved;
+    if (ds.id) { saved = (await SB.upd('exercises', { id: ds.id }, row))[0]; Object.assign(exById(ds.id), saved); }
+    else { saved = (await SB.ins('exercises', [Object.assign({ active: true }, row)]))[0]; A.ex.push(saved); }
+    closeModal();
+    toast('Saved');
+    if (L && L.mode === 'pick' && !ds.id) { A.lib = null; return L.onPick && L.onPick(saved.id); }
+    if (L && L.mode === 'pick') return openPickerAgain(L);
+    A.lib.open[saved.part] = true;
+    renderLib();
+  } catch (err) { $('#exErr').textContent = err.message; el.disabled = false; }
+};
+
+/* ======================================================================
+   MESOCYCLE: build, publish, edit
+   ====================================================================== */
+const SPLITS = [
+  { id: 'ap', label: 'Anterior / Posterior', base: ['Anterior', 'Posterior'] },
+  { id: 'ul', label: 'Upper / Lower', base: ['Upper', 'Lower'] },
+  { id: 'ppl', label: 'Push / Pull / Legs', base: ['Push', 'Pull', 'Legs'] },
+  { id: 'fb', label: 'Full Body', base: null }
+];
+const DAY_BASES = ['Anterior', 'Posterior', 'Upper', 'Lower', 'Push', 'Pull', 'Legs'];
+const REP_RANGES = ['6-8', '8-10', '10-12'];
+const rand = (n) => { let s = ''; const a = 'abcdefghijklmnopqrstuvwxyz0123456789'; for (let i = 0; i < n; i++) s += a[Math.floor(Math.random() * a.length)]; return s; };
+function splitNames(id, n) {
+  const sp = SPLITS.find((x) => x.id === id) || SPLITS[0];
+  if (!sp.base) return Array.from({ length: n }, (_, i) => 'Day ' + (i + 1));
+  const rounds = Math.ceil(n / sp.base.length);
+  return Array.from({ length: n }, (_, i) => sp.base[i % sp.base.length] + (rounds > 1 ? ' ' + 'ABCDEFG'[Math.floor(i / sp.base.length)] : ''));
+}
+function dayOptions(cur) {
+  const all = [];
+  DAY_BASES.forEach((b) => { all.push(b); 'ABCD'.split('').forEach((l) => all.push(b + ' ' + l)); });
+  for (let i = 1; i <= 7; i++) all.push('Day ' + i);
+  const o = (v) => `<option ${v === cur ? 'selected' : ''}>${esc(v)}</option>`;
+  return (all.includes(cur) ? '' : o(cur)) +
+    DAY_BASES.map((b) => `<optgroup label="${b}">${[b].concat('ABCD'.split('').map((l) => b + ' ' + l)).map(o).join('')}</optgroup>`).join('') +
+    `<optgroup label="Full Body">${[1,2,3,4,5,6,7].map((i) => o('Day ' + i)).join('')}</optgroup>`;
+}
+function nextDayName(name) {
+  let m = /^(.*) ([A-C])$/.exec(name);
+  if (m) return m[1] + ' ' + String.fromCharCode(m[2].charCodeAt(0) + 1);
+  m = /^Day ([1-6])$/.exec(name);
+  return m ? 'Day ' + (+m[1] + 1) : name;
+}
+
+ACT['meso.new'] = () => { A.nm = { days: 4, split: 'ap' }; renderNewMeso(); };
+function renderNewMeso() {
+  const nm = A.nm;
+  openModal(`<h3>New mesocycle</h3>
+    <div class="lbl" style="margin-top:0">Days per week</div>
+    <div class="seg wide">${[1,2,3,4,5,6,7].map((k) => `<button class="${nm.days === k ? 'on' : ''}" data-a="meso.nmDays" data-v="${k}">${k}</button>`).join('')}</div>
+    <div class="lbl">Split</div>
+    ${SPLITS.map((sp) => `<button class="opt ${nm.split === sp.id ? 'on' : ''}" data-a="meso.nmSplit" data-v="${sp.id}">${esc(sp.label)}</button>`).join('')}
+    <div class="lbl">Days</div><div class="sub">${splitNames(nm.split, nm.days).map(esc).join(' · ')}</div>
+    <button class="btn" data-a="meso.nmGo">CREATE</button>
+    <button class="btn ghost" data-a="meso.copyList">COPY FROM A TRAINEE…</button>
+    <button class="btn ghost" data-a="modal.no">CANCEL</button>`);
+}
+ACT['meso.nmDays'] = (ds) => { A.nm.days = +ds.v; renderNewMeso(); };
+ACT['meso.nmSplit'] = (ds) => { A.nm.split = ds.v; renderNewMeso(); };
+ACT['meso.nmGo'] = async () => {
+  closeModal();
+  const num = (A.trData.mesos || []).reduce((a, m) => Math.max(a, m.num), 0) + 1;
+  const days = splitNames(A.nm.split, A.nm.days).map((name) => ({ id: 'D' + rand(6), name }));
+  main('<div class="spin"></div>');
+  try {
+    await loadEx();
+    const rows = await SB.ins('mesocycles', [{ trainee_id: A.tr.id, num, title: '', weeks: 4, days, status: 'draft', start_week: 0 }]);
+    A.trData.mesos.push(rows[0]);
+    openEditor(rows[0].id, []);
+  } catch (err) { toast(err.message); renderTrainee(); }
+};
+ACT['meso.copyList'] = () => {
+  const others = trainees().filter((p) => publishedOf(p.id).length);
+  openModal(`<h3>Copy from</h3>
+    ${others.map((p) => { const m = publishedOf(p.id).slice(-1)[0];
+      return `<div class="item" data-a="meso.copy" data-id="${m.id}"><div class="grow"><b>${esc(p.name || p.email)}</b><div class="sub">Mesocycle ${m.num}${m.title ? ' · ' + esc(m.title) : ''}</div></div>›</div>`; }).join('')
+      || '<p class="muted">No published program to copy yet.</p>'}
+    <button class="btn ghost" data-a="meso.new">BACK</button>`);
+};
+ACT['meso.copy'] = async (ds) => {
+  closeModal();
+  main('<div class="spin"></div>');
+  try {
+    await loadEx();
+    const src = (A.dash.mesos || []).find((m) => String(m.id) === String(ds.id));
+    const rows = await SB.sel('plan', { eq: { meso_id: src.id } });
+    const dayMap = {};
+    const days = (src.days || []).map((d) => { const id = 'D' + rand(6); dayMap[d.id] = id; return { id, name: d.name }; });
+    const num = (A.trData.mesos || []).reduce((a, m) => Math.max(a, m.num), 0) + 1;
+    const created = (await SB.ins('mesocycles', [{ trainee_id: A.tr.id, num, title: src.title, weeks: src.weeks, days, status: 'draft', start_week: 0 }]))[0];
+    const final = latestVersions(rows, src.weeks);
+    const slots = final.map((r, i) => ({ meso_id: created.id, slot: 'S' + rand(8), day_id: dayMap[r.day_id], pos: r.pos, from_week: 1,
+                                         ex_id: r.ex_id, sets: r.sets, reps: r.reps, note: r.note }));
+    if (slots.length) await SB.ins('plan', slots);
+    A.trData.mesos.push(created);
+    openEditor(created.id, slots);
+  } catch (err) { toast(err.message); renderTrainee(); }
+};
+function latestVersions(rows, week) {
+  const by = {};
+  rows.forEach((r) => { if (r.from_week <= week && (!by[r.slot] || r.from_week >= by[r.slot].from_week)) by[r.slot] = r; });
+  return Object.keys(by).map((k) => by[k]).filter((r) => r.ex_id).sort((a, b) => a.pos - b.pos);
+}
+
+ACT['meso.open'] = async (ds) => {
+  main('<div class="spin"></div>');
+  try {
+    await loadEx();
+    const rows = await SB.sel('plan', { eq: { meso_id: ds.id } });
+    openEditor(ds.id, rows);
+  } catch (err) { toast(err.message); renderTrainee(); }
+};
+function openEditor(mesoId, planRows) {
+  const m = A.trData.mesos.find((x) => String(x.id) === String(mesoId));
+  const ed = { id: m.id, status: m.status, num: m.num, title: m.title || '', weeks: m.weeks, startWeek: m.start_week,
+               days: (m.days || []).map((d) => ({ id: d.id, name: d.name })), origDays: (m.days || []).map((d) => d.id),
+               slots: [], folded: {}, dirty: false, saving: false, err: '' };
+  if (m.status === 'draft') {
+    ed.slots = planRows.filter((r) => r.ex_id).map((r) => ({ slot: r.slot, day: r.day_id, pos: r.pos, ex: r.ex_id, sets: r.sets, reps: r.reps, note: r.note || '' }));
+  } else {
+    ed.eff = {};
+    ed.days.forEach((d) => {
+      const fw = 1;                     // set properly when logs are loaded
+      ed.eff[d.id] = fw;
+      latestVersions(planRows.filter((r) => r.day_id === d.id), Math.min(fw, m.weeks))
+        .forEach((r) => ed.slots.push({ slot: r.slot, day: d.id, pos: r.pos, ex: r.ex_id, sets: r.sets, reps: r.reps, note: r.note || '' }));
+    });
+  }
+  normPos(ed);
+  A.ed = ed;
+  A.planRows = planRows;
+  A.screen = 'editor';
+  renderEditor();
+}
+function normPos(ed) {
+  ed.days.forEach((d) => ed.slots.filter((s) => s.day === d.id).sort((a, b) => a.pos - b.pos).forEach((s, i) => { s.pos = i + 1; }));
+}
+function edValidate(ed) {
+  if (!ed.days.length) return 'Add at least one day.';
+  for (const s of ed.slots) if (!/^\d{1,2}(-\d{1,2})?$/.test(s.reps)) return `Fix the reps "${s.reps}" (example: 8-10).`;
+  return '';
+}
+function saveText() {
+  const ed = A.ed;
+  const v = edValidate(ed);
+  if (v) return `<span class="savebar bad">${esc(v)}</span>`;
+  if (ed.err) return `<span class="savebar bad">Not saved: ${esc(ed.err)}</span>`;
+  if (ed.saving || ed.dirty) return 'Saving…';
+  return 'All changes saved ✓';
+}
+function renderEditor(keep) {
+  const ed = A.ed;
+  const pub = ed.status === 'published';
+  hdr({ title: `M${ed.num} · ${pub ? 'PUBLISHED' : 'DRAFT'}`, back: true });
+  const days = ed.days.map((d, di) => {
+    const slots = ed.slots.filter((s) => s.day === d.id).sort((a, b) => a.pos - b.pos);
+    const folded = !!ed.folded[d.id];
+    const sets = slots.reduce((a, s) => a + s.sets, 0);
+    return `<div class="card edday">
+      <div class="edday-h">
+        <button class="sq" data-a="ed.fold" data-day="${d.id}">${folded ? '▸' : '▾'}</button>
+        <select class="in" data-ch="ed.dayName" data-day="${d.id}">${dayOptions(d.name)}</select></div>
+      ${folded ? `<div class="sub">${slots.length} exercises · ${sets} sets</div>` : `
+      <div class="edday-a">
+        <button class="sq" data-a="ed.dayMove" data-day="${d.id}" data-dir="-1" ${di === 0 ? 'disabled' : ''}>▲</button>
+        <button class="sq" data-a="ed.dayMove" data-day="${d.id}" data-dir="1" ${di === ed.days.length - 1 ? 'disabled' : ''}>▼</button>
+        <button class="sq" data-a="ed.dayDup" data-day="${d.id}">⧉</button>
+        ${!pub || !ed.origDays.includes(d.id) ? `<button class="sq" data-a="ed.dayDel" data-day="${d.id}" style="color:#fca5a5">✕</button>` : ''}
+      </div>
+      ${slots.map((s, i) => slotRow(s, i, slots.length)).join('')}
+      <button class="btn sm ghost" data-a="ed.addSlot" data-day="${d.id}">+ ADD EXERCISE</button>`}</div>`;
+  }).join('');
+  main(`<div class="savebar" id="saveBar">${saveText()}</div>
+    <div class="lbl" style="margin-top:0">Title (optional)</div><input class="in" value="${esc(ed.title)}" maxlength="60" data-in="ed.title" placeholder="e.g. Base block">
+    <div class="lbl">Weeks</div>
+    ${pub ? `<div class="muted">${ed.weeks} weeks · weeks ${ed.startWeek}–${ed.startWeek + ed.weeks - 1}</div>`
+          : `<div class="row"><button class="sq" data-a="ed.weeks" data-dir="-1" ${ed.weeks <= 1 ? 'disabled' : ''}>−</button>
+             <b style="min-width:80px;text-align:center">${ed.weeks} weeks</b>
+             <button class="sq" data-a="ed.weeks" data-dir="1" ${ed.weeks >= 12 ? 'disabled' : ''}>+</button></div>`}
+    <div class="lbl">Days</div>${days}
+    ${ed.days.length < 7 ? '<button class="btn ghost" data-a="ed.addDay">+ ADD DAY</button>' : ''}
+    <div class="lbl">Actions</div>
+    ${pub ? '<button class="btn" data-a="ed.savePub">SAVE CHANGES</button><button class="btn ghost" data-a="ed.summary">SUMMARY</button>'
+          : `<button class="btn" data-a="ed.publish" style="background:var(--green);color:#06210f">REVIEW & PUBLISH</button>
+             <button class="btn ghost" data-a="nav.back">SAVE DRAFT & CLOSE</button>
+             <p class="sub center">Drafts stay hidden from the trainee until you publish.</p>
+             <button class="btn danger" data-a="ed.del">DELETE DRAFT</button>`}`);
+}
+function slotRow(s, i, total) {
+  const ex = exById(s.ex) || { name: '—' };
+  const custom = !REP_RANGES.includes(s.reps);
+  const sd = `data-slot="${s.slot}"`;
+  return `<div class="slot">
+    <div class="slot-h"><span class="num">${i + 1}</span><button class="exbtn" data-a="ed.slotEx" ${sd}>${esc(ex.name)}</button></div>
+    <div class="slot-b">
+      <div class="seg">${[1,2,3].map((k) => `<button class="${s.sets === k ? 'on' : ''}" data-a="ed.slotSets" ${sd} data-v="${k}">${k}</button>`).join('')}</div>
+      <span class="muted">sets ×</span>
+      <div class="seg">${REP_RANGES.map((r) => `<button class="${s.reps === r ? 'on' : ''}" data-a="ed.slotReps" ${sd} data-v="${r}">${r}</button>`).join('')}</div>
+      <input class="in reps" placeholder="other" value="${custom ? esc(s.reps) : ''}" maxlength="5" data-in="ed.slotRepsIn" ${sd}></div>
+    <div class="slot-f"><input class="in" placeholder="Coach note (optional)" value="${esc(s.note)}" maxlength="500" data-in="ed.slotNote" ${sd}>
+      <button class="sq" data-a="ed.slotMove" ${sd} data-dir="-1" ${i === 0 ? 'disabled' : ''}>▲</button>
+      <button class="sq" data-a="ed.slotMove" ${sd} data-dir="1" ${i === total - 1 ? 'disabled' : ''}>▼</button>
+      <button class="sq" data-a="ed.slotDup" ${sd}>⧉</button>
+      <button class="sq" data-a="ed.slotDel" ${sd} style="color:#fca5a5">✕</button></div></div>`;
+}
+function slotById(id) { return A.ed.slots.find((s) => s.slot === id); }
+function edChanged(structural) {
+  const ed = A.ed;
+  ed.dirty = true;
+  if (structural) { normPos(ed); renderEditor(); } else { const b = $('#saveBar'); if (b) b.innerHTML = saveText(); }
+  if (ed.status === 'draft') { clearTimeout(A.saveTimer); A.saveTimer = setTimeout(() => saveDraft(ed), 900); }
+}
+async function saveDraft(ed) {
+  if (ed.status !== 'draft' || ed.saving || !ed.dirty) return;
+  if (edValidate(ed)) return;
+  ed.saving = true;
+  ed.err = '';
+  const bar = $('#saveBar');
+  if (bar) bar.innerHTML = saveText();
+  try {
+    await SB.upd('mesocycles', { id: ed.id }, { title: ed.title, weeks: ed.weeks, days: ed.days });
+    await SB.del('plan', { meso_id: ed.id });
+    if (ed.slots.length) {
+      await SB.ins('plan', ed.slots.map((s) => ({ meso_id: ed.id, slot: s.slot, day_id: s.day, pos: s.pos, from_week: 1, ex_id: s.ex, sets: s.sets, reps: s.reps, note: s.note })));
+    }
+    const m = A.trData.mesos.find((x) => String(x.id) === String(ed.id));
+    if (m) { m.title = ed.title; m.weeks = ed.weeks; m.days = ed.days; }
+    ed.dirty = false;
+  } catch (err) { ed.err = err.message; }
+  ed.saving = false;
+  if (A.ed === ed && $('#saveBar')) $('#saveBar').innerHTML = saveText();
+  if (ed.dirty && !ed.err) setTimeout(() => saveDraft(ed), 400);
+}
+INP['ed.title'] = (el) => { A.ed.title = el.value; edChanged(false); };
+CHG['ed.dayName'] = (el) => { const d = A.ed.days.find((x) => x.id === el.dataset.day); if (d) { d.name = el.value; edChanged(false); } };
+ACT['ed.fold'] = (ds) => { A.ed.folded[ds.day] = !A.ed.folded[ds.day]; renderEditor(); };
+ACT['ed.weeks'] = (ds) => { const ed = A.ed; ed.weeks = Math.min(12, Math.max(1, ed.weeks + +ds.dir)); edChanged(true); };
+ACT['ed.addDay'] = () => { const ed = A.ed; ed.days.push({ id: 'D' + rand(6), name: 'Day ' + (ed.days.length + 1) }); edChanged(true); };
+ACT['ed.dayMove'] = (ds) => {
+  const ed = A.ed, i = ed.days.findIndex((d) => d.id === ds.day), j = i + +ds.dir;
+  if (j < 0 || j >= ed.days.length) return;
+  const t = ed.days[i]; ed.days[i] = ed.days[j]; ed.days[j] = t;
+  edChanged(true);
+};
+ACT['ed.dayDup'] = (ds) => {
+  const ed = A.ed;
+  if (ed.days.length >= 7) return toast('Maximum 7 days');
+  const i = ed.days.findIndex((d) => d.id === ds.day), src = ed.days[i];
+  const nd = { id: 'D' + rand(6), name: nextDayName(src.name) };
+  ed.days.splice(i + 1, 0, nd);
+  ed.slots.filter((s) => s.day === src.id).forEach((s) => ed.slots.push(Object.assign({}, s, { slot: 'S' + rand(8), day: nd.id })));
+  edChanged(true);
+};
+ACT['ed.dayDel'] = async (ds) => {
+  const ed = A.ed;
+  if (ed.days.length <= 1) return toast('A mesocycle needs at least one day');
+  const d = ed.days.find((x) => x.id === ds.day);
+  const n = ed.slots.filter((s) => s.day === d.id).length;
+  if (n && !(await confirmBox('Delete day?', `"${d.name}" and its ${n} exercises will be removed.`, 'DELETE', true))) return;
+  ed.days = ed.days.filter((x) => x.id !== d.id);
+  ed.slots = ed.slots.filter((s) => s.day !== d.id);
+  edChanged(true);
+};
+ACT['ed.addSlot'] = (ds) => openPicker((exId) => {
+  const ed = A.ed;
+  const pos = ed.slots.filter((s) => s.day === ds.day).reduce((a, s) => Math.max(a, s.pos), 0) + 1;
+  ed.slots.push({ slot: 'S' + rand(8), day: ds.day, pos, ex: exId, sets: 2, reps: '8-10', note: '' });
+  edChanged(true);
+});
+ACT['ed.slotEx'] = (ds) => openPicker((exId) => { const s = slotById(ds.slot); if (s) { s.ex = exId; edChanged(true); } });
+ACT['ed.slotSets'] = (ds) => { const s = slotById(ds.slot); if (s) { s.sets = +ds.v; edChanged(true); } };
+ACT['ed.slotReps'] = (ds) => { const s = slotById(ds.slot); if (s) { s.reps = ds.v; edChanged(true); } };
+INP['ed.slotRepsIn'] = (el) => {
+  const s = slotById(el.dataset.slot);
+  if (!s) return;
+  const v = el.value.replace(/[^\d-]/g, '');
+  if (v !== el.value) el.value = v;
+  if (!v) return;
+  s.reps = v;
+  edChanged(false);
+};
+INP['ed.slotNote'] = (el) => { const s = slotById(el.dataset.slot); if (s) { s.note = el.value; edChanged(false); } };
+ACT['ed.slotMove'] = (ds) => {
+  const s = slotById(ds.slot);
+  const list = A.ed.slots.filter((x) => x.day === s.day).sort((a, b) => a.pos - b.pos);
+  const i = list.indexOf(s), j = i + +ds.dir;
+  if (j < 0 || j >= list.length) return;
+  const p = list[i].pos; list[i].pos = list[j].pos; list[j].pos = p;
+  edChanged(true);
+};
+ACT['ed.slotDup'] = (ds) => {
+  const s = slotById(ds.slot);
+  A.ed.slots.filter((x) => x.day === s.day && x.pos > s.pos).forEach((x) => { x.pos++; });
+  A.ed.slots.push(Object.assign({}, s, { slot: 'S' + rand(8), pos: s.pos + 1 }));
+  edChanged(true);
+};
+ACT['ed.slotDel'] = (ds) => { A.ed.slots = A.ed.slots.filter((x) => x.slot !== ds.slot); edChanged(true); };
+
+ACT['ed.summary'] = () => openSummary(false);
+ACT['ed.publish'] = () => {
+  const ed = A.ed;
+  const v = edValidate(ed);
+  if (v) return toast(v);
+  const empty = ed.days.filter((d) => !ed.slots.some((s) => s.day === d.id)).map((d) => d.name);
+  if (empty.length) return toast('Add exercises to: ' + empty.join(', '));
+  openSummary(true);
+};
+function openSummary(forPublish) {
+  const ed = A.ed;
+  const perPart = {};
+  let total = 0;
+  const days = ed.days.map((d) => {
+    const slots = ed.slots.filter((s) => s.day === d.id).sort((a, b) => a.pos - b.pos);
+    const sets = slots.reduce((a, s) => a + s.sets, 0);
+    total += sets;
+    slots.forEach((s) => { const x = exById(s.ex); const pt = x && PARTS.includes(x.part) ? x.part : 'Other'; perPart[pt] = (perPart[pt] || 0) + s.sets; });
+    return `<div class="sumday"><div class="row"><b class="grow">${esc(d.name)}</b><span class="muted">${sets} sets</span></div>
+      ${slots.map((s) => `<div class="sumline"><span>${esc((exById(s.ex) || {}).name || '—')}</span><span class="muted">${s.sets}×${esc(s.reps)}</span></div>`).join('')}</div>`;
+  }).join('');
+  const order = PARTS.concat(['Other']).filter((pt) => perPart[pt]);
+  openModal(`<h3>Summary</h3>
+    <div class="lbl" style="margin-top:0">Weekly sets per muscle</div>
+    <div class="sumgrid">${order.map((pt) => `<div class="sumrow"><span>${esc(pt)}</span><b>${perPart[pt]}</b></div>`).join('')}</div>
+    <div class="lbl">Program · ${ed.weeks} weeks · ${total} sets per week</div>${days}
+    ${forPublish ? '<button class="btn" style="background:var(--green);color:#06210f" data-a="ed.publishGo">APPROVE & PUBLISH</button><button class="btn ghost" data-a="modal.no">EDIT</button>'
+                 : '<button class="btn ghost" data-a="modal.no">CLOSE</button>'}`);
+}
+ACT['ed.publishGo'] = async (ds, el) => {
+  const ed = A.ed;
+  el.disabled = true;
+  try {
+    if (ed.dirty || ed.saving) { await saveDraft(ed); }
+    const pub = publishedOf(A.tr.id);
+    const start = pub.reduce((a, m) => Math.max(a, m.start_week + m.weeks - 1), 0) + 1;
+    await SB.upd('mesocycles', { id: ed.id }, { status: 'published', start_week: start, published_at: new Date().toISOString() });
+    const m = A.trData.mesos.find((x) => String(x.id) === String(ed.id));
+    Object.assign(m, { status: 'published', start_week: start });
+    const dm = (A.dash.mesos || []).find((x) => String(x.id) === String(ed.id));
+    if (dm) Object.assign(dm, { status: 'published', start_week: start, weeks: ed.weeks, days: ed.days });
+    else A.dash.mesos.push({ id: ed.id, trainee_id: A.tr.id, num: ed.num, weeks: ed.weeks, days: ed.days, status: 'published', start_week: start });
+    if (A.tr.status === 'new') { await SB.upd('profiles', { id: A.tr.id }, { status: 'active' }); A.tr.status = 'active'; }
+    closeModal();
+    toast('Published ✓');
+    A.screen = 'trainee';
+    renderTrainee();
+  } catch (err) { toast(err.message); el.disabled = false; }
+};
+ACT['ed.savePub'] = async (ds, el) => {
+  const ed = A.ed;
+  const v = edValidate(ed);
+  if (v) return toast(v);
+  if (!(await confirmBox('Save changes?', 'Logged sessions stay as they are.', 'SAVE'))) return;
+  el.disabled = true;
+  try {
+    await SB.upd('mesocycles', { id: ed.id }, { title: ed.title, days: ed.days });
+    await SB.del('plan', { meso_id: ed.id });
+    await SB.ins('plan', ed.slots.map((s) => ({ meso_id: ed.id, slot: s.slot, day_id: s.day, pos: s.pos, from_week: 1, ex_id: s.ex, sets: s.sets, reps: s.reps, note: s.note })));
+    ed.dirty = false;
+    toast('Saved ✓');
+    renderEditor();
+  } catch (err) { toast(err.message); el.disabled = false; }
+};
+ACT['ed.del'] = async () => {
+  if (!(await confirmBox('Delete draft?', 'This cannot be undone.', 'DELETE', true))) return;
+  try {
+    await SB.del('plan', { meso_id: A.ed.id });
+    await SB.del('mesocycles', { id: A.ed.id });
+    A.trData.mesos = A.trData.mesos.filter((m) => String(m.id) !== String(A.ed.id));
+    A.ed = null;
+    A.screen = 'trainee';
+    toast('Deleted');
+    renderTrainee();
+  } catch (err) { toast(err.message); }
 };
 
 /* ======================================================================
