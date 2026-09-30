@@ -151,13 +151,42 @@ button:disabled{opacity:.35;cursor:default}
 .bands{display:flex;flex-wrap:wrap;gap:8px}
 .bands button{flex:1;min-width:88px;padding:12px 8px;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-weight:800;font-size:13px}
 .bands button.on{background:var(--blue);border-color:var(--blue)}
+.tabs2{display:flex;gap:8px;margin-bottom:12px}
+.tabs2 button{flex:1;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:12px 6px;font-size:12px;font-weight:800;letter-spacing:.06em;color:var(--muted)}
+.tabs2 button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.dayrow{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.dayrow .sq{width:38px;height:38px}
+.daybtn{flex:1;border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:12px;padding:10px;font-weight:800}
+.daybtn.done{border-color:var(--green);color:#86efac}
+.daybtn.miss{border-color:#b91c1c;color:#fca5a5}
+.daybtn.part{border-color:var(--amber);color:#fcd34d}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal button{aspect-ratio:1;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-weight:800;font-size:13px}
+.cal button.done{background:rgba(34,197,94,.22);border-color:var(--green)}
+.cal button.miss{background:rgba(239,68,68,.2);border-color:#b91c1c}
+.cal button.part{background:rgba(245,158,11,.2);border-color:var(--amber)}
+.cal button.soon{opacity:.35}
+.cal .hd{text-align:center;font-size:10px;color:var(--muted);font-weight:800}
+.q{width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:var(--card2);color:var(--muted);font-size:12px;font-weight:800;flex:none}
+.lblrow{display:flex;align-items:center;gap:8px;margin:14px 0 6px}
+.lblrow .lbl{margin:0}
+.target{font-size:11px;color:#93c5fd;font-weight:800;margin-left:auto}
+.note-y{background:rgba(234,179,8,.14);border:1px solid rgba(234,179,8,.45);border-radius:12px;padding:10px 12px;white-space:pre-wrap;text-align:left;width:100%}
+.note-y b{display:block;font-size:11px;letter-spacing:.1em;color:#fcd34d;margin-bottom:3px}
+.next-day{box-shadow:0 0 0 2px var(--blue) inset}
+.progbig{font-size:34px;font-weight:900;color:var(--green)}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th,.tbl td{border:1px solid var(--line);padding:6px 4px;text-align:center}
+.tbl th{background:var(--card2);font-size:10px;letter-spacing:.04em}
+.tbl td.me{text-align:left;font-weight:700}
 .logo{font-size:26px;font-weight:900;letter-spacing:2px;color:var(--blue);text-align:center;margin:40px 0 6px}
 .center{text-align:center}
 </style>
 </head>
 <body>
 <header class="hdr">
-  <div class="hgrp"><button class="hbtn txt" id="hBack" data-a="nav.back" hidden>BACK</button></div>
+  <div class="hgrp"><button class="hbtn txt" id="hBack" data-a="nav.back" hidden>BACK</button>
+    <button class="hbtn txt" id="hHome" data-a="nav.home" hidden>HOME</button></div>
   <div class="htitle" id="hTitle">HAJIME</div>
   <div class="hgrp" id="hRight"></div>
 </header>
@@ -196,6 +225,7 @@ function main(html) { $('#main').innerHTML = html; window.scrollTo(0, 0); }
 function hdr(o) {
   $('#hTitle').textContent = o.title || 'HAJIME';
   $('#hBack').hidden = !o.back;
+  $('#hHome').hidden = !o.home;
   $('#hRight').innerHTML = o.right || '';
 }
 function openModal(html) { $('#sheet').innerHTML = html; $('#modal').hidden = false; }
@@ -320,11 +350,16 @@ document.addEventListener('change', (ev) => { const el = ev.target.closest('[dat
 ACT['modal.yes'] = () => modalDone(true);
 ACT['modal.no'] = () => modalDone(null);
 ACT['nav.back'] = () => back();
+ACT['nav.home'] = () => {
+  if (A.me && A.me.role === 'trainee') { if (T.ui.screen === 'ex') saveNote(); T.ui.screen = 'home'; return renderTHome(); }
+  A.tr = null; A.trData = null; A.ed = null; A.screen = 'home'; renderHome();
+};
 
 async function back() {
   if (A.me && A.me.role === 'trainee') {
     if (T.ui.screen === 'ex') { saveNote(); T.ui.screen = 'day'; return renderDay(); }
     if (T.ui.screen === 'day') { T.ui.screen = 'week'; return renderWeek(); }
+    if (T.ui.screen === 'prog') { T.ui.screen = 'week'; return renderWeek(); }
     if (T.ui.screen === 'week' || T.ui.screen === 'check') { T.ui.screen = 'home'; return renderTHome(); }
     return;
   }
@@ -521,6 +556,13 @@ function renderTrainee() {
           <select class="in" data-ch="tr.pkg"><option value=""></option>${opts(['الأساسية', 'الأساسية + الحاسبة', 'البريميوم'], p.package)}</select></div>
       </div></div>
 
+    <div class="box"><div class="lbl" style="margin-top:0">Daily targets</div>
+      <div class="row">
+        <div class="grow"><div class="lbl" style="margin-top:0">CALORIES</div><input class="in" id="tgKcal" inputmode="numeric" value="${p.target_kcal != null ? esc(p.target_kcal) : ''}"></div>
+        <div class="grow"><div class="lbl" style="margin-top:0">PROTEIN (G)</div><input class="in" id="tgProt" inputmode="numeric" value="${p.target_protein != null ? esc(p.target_protein) : ''}"></div>
+        <div class="grow"><div class="lbl" style="margin-top:0">STEPS</div><input class="in" id="tgSteps" inputmode="numeric" value="${p.target_steps != null ? esc(p.target_steps) : ''}"></div>
+      </div><button class="btn sm ghost" data-a="tr.saveTargets">SAVE TARGETS</button></div>
+
     <div class="box"><div class="lbl" style="margin-top:0">My notes</div>
       <textarea class="ta" data-in="tr.note" placeholder="Private notes about this trainee…">${esc(p.coach_note || '')}</textarea>
       <button class="btn sm ghost" data-a="tr.noteSave">SAVE NOTES</button></div>
@@ -589,6 +631,14 @@ CHG['tr.status'] = async (el) => {
 CHG['tr.pkg'] = async (el) => {
   try { await SB.upd('profiles', { id: A.tr.id }, { package: el.value }); A.tr.package = el.value; toast('Saved'); }
   catch (err) { toast(err.message); }
+};
+ACT['tr.saveTargets'] = async (ds, el) => {
+  const num = (id) => { const v = $('#' + id).value.trim(); return v === '' ? null : Number(v); };
+  el.disabled = true;
+  const patch = { target_kcal: num('tgKcal'), target_protein: num('tgProt'), target_steps: num('tgSteps') };
+  try { await SB.upd('profiles', { id: A.tr.id }, patch); Object.assign(A.tr, patch); toast('Targets saved'); }
+  catch (err) { toast(err.message); }
+  el.disabled = false;
 };
 INP['tr.note'] = (el) => { A.noteDraft = el.value; };
 ACT['tr.noteSave'] = async (ds, el) => {
@@ -1236,7 +1286,8 @@ function syncPill() {
   const txt = !n ? 'SYNCED' : (T.offline ? 'OFFLINE · ' : 'SAVING · ') + n;
   return `<button class="sync ${cls}" data-a="me.sync"><i></i><span class="sr">${txt}</span>${n ? n : ''}</button>`;
 }
-function updateSync() { if (A.me && A.me.role === 'trainee') { const r = $('#hRight'); if (r) r.innerHTML = syncPill() + `<button class="hbtn txt" data-a="auth.out">EXIT</button>`; } }
+function tRight() { return syncPill() + '<button class="hbtn txt" data-a="auth.out">EXIT</button>'; }
+function updateSync() { if (A.me && A.me.role === 'trainee') { const r = $('#hRight'); if (r) r.innerHTML = tRight(); } }
 ACT['me.sync'] = () => { if (T.queue.length) { flush(); toast('Sending…'); } else toast('Everything is saved'); };
 
 /* ---------- access: subscription lock and pause ---------- */
@@ -1278,6 +1329,7 @@ async function startMe() {
   T.queue = LS.get(qKey(), []) || [];
   await loadMe();
   T.ui.wi = currentWeekIndex();
+  if (!T.ui.tab) T.ui.tab = 'check';
   if (!T.listen) {
     T.listen = true;
     window.addEventListener('online', () => { T.offline = false; flush(); });
@@ -1285,6 +1337,13 @@ async function startMe() {
   renderT();
   flush();
 }
+function tabsHtml() {
+  return `<div class="tabs2">
+    <button class="${T.ui.tab !== 'work' ? 'on' : ''}" data-a="me.tabCheck">DAILY TRACKER</button>
+    <button class="${T.ui.tab === 'work' ? 'on' : ''}" data-a="me.tabWork">WORKOUT</button></div>`;
+}
+ACT['me.tabCheck'] = () => { T.ui.tab = 'check'; T.ui.screen = 'check'; T.ui.day0 = T.ui.day0 || today(); renderCheck(); };
+ACT['me.tabWork'] = () => { T.ui.tab = 'work'; T.ui.wi = currentWeekIndex(); T.ui.screen = 'week'; renderWeek(); };
 function renderT() {
   if (T.ui.screen === 'ex') return renderEx();
   if (T.ui.screen === 'day') return renderDay();
@@ -1298,44 +1357,55 @@ function weekWorkouts(wk) {
 }
 function renderTHome() {
   T.ui.screen = 'home';
-  hdr({ title: 'HAJIME', right: syncPill() + `<button class="hbtn txt" data-a="auth.out">EXIT</button>` });
+  hdr({ title: 'HAJIME', right: tRight() });
   const sub = A.me.end_date ? daysBetween(today(), A.me.end_date) : null;
   const subLine = sub === null ? '' : `<div class="ocard"><div class="orow"><span class="olabel">SUBSCRIPTION</span>
       <span class="${sub < 0 ? 'chip red' : sub <= 7 ? 'chip amber' : 'chip green'}">${sub < 0 ? 'GRACE ' + (GRACE + sub) + 'D' : sub + ' DAYS LEFT'}</span></div></div>`;
   if (!T.D.weeks.length) {
     return main(`<div class="logo">HAJIME</div>${subLine}
       <div class="ocard center"><p class="muted">Your program isn’t ready yet. Your coach will publish it soon.</p></div>
-      <button class="btn ghost" data-a="me.check">DAILY CHECK-IN</button>`);
+      <button class="btn" data-a="me.check">DAILY TRACKER</button>`);
   }
   const wk = T.D.weeks[currentWeekIndex()];
   const w = weekWorkouts(wk);
-  const done = T.D.checkins.some((c) => c.day === today());
+  const cst = checkState(today());
+  const tone = cst === 'done' ? 'green' : cst === 'miss' ? 'red' : 'amber';
+  const wtone = w.done === w.total ? 'green' : w.done ? 'amber' : 'red';
   main(`<div class="logo">HAJIME</div>${subLine}
     <div class="ocard"><div class="orow"><span class="olabel">CURRENT FOCUS</span><span style="color:var(--blue);font-weight:800">WEEK ${wk.g}</span></div>
       <div style="font-size:18px;font-weight:900">${w.done} OF ${w.total} WORKOUTS DONE</div>
       <div class="obar"><div style="width:${w.total ? Math.round(w.done / w.total * 100) : 0}%"></div></div></div>
-    <button class="btn" data-a="me.start">START WORKOUT</button>
-    <button class="btn ghost" data-a="me.check">DAILY CHECK-IN${done ? ' ✓' : ''}</button>`);
+    <div class="row" style="gap:8px;margin:8px 0"><span class="chip ${tone}">TODAY'S TRACKER</span><span class="chip ${wtone}">WORKOUTS ${w.done}/${w.total}</span></div>
+    <button class="btn" data-a="me.check">DAILY TRACKER</button>
+    <button class="btn ghost" data-a="me.start">START WORKOUT</button>`);
 }
-ACT['me.start'] = () => { T.ui.wi = currentWeekIndex(); T.ui.screen = 'week'; renderWeek(); };
+ACT['me.start'] = () => ACT['me.tabWork']();
 ACT['me.home'] = () => { T.ui.screen = 'home'; renderTHome(); };
 
+function nextDayId(wk) {
+  const d = wk.meso.days.find((x) => { const its = dayItems(wk.meso, wk.w, x.id); return its.length && its.some((it) => !exFinished(wk.meso, wk.w, it)); });
+  return d ? d.id : '';
+}
 function renderWeek() {
   T.ui.screen = 'week';
+  T.ui.tab = 'work';
   const wk = curWeek();
-  hdr({ title: 'WORKOUTS', back: true, right: syncPill() });
-  const opts = T.D.weeks.map((x, i) => `<option value="${i}" ${i === T.ui.wi ? 'selected' : ''}>WEEK ${x.g} (${weekWorkouts(x).done}/${weekWorkouts(x).total})</option>`).join('');
+  hdr({ title: 'WORKOUT', home: true, right: tRight() });
+  const nd = nextDayId(wk);
   const cards = wk.meso.days.map((d) => {
     const items = dayItems(wk.meso, wk.w, d.id);
     const st = dayStatus(wk.meso, wk.w, d.id);
     const fin = items.filter((it) => exFinished(wk.meso, wk.w, it)).length;
-    return `<div class="card ${stCls(st)}" data-a="me.day" data-day="${d.id}"><div class="grow">
-      <div class="ttl">${esc(d.name)}</div><div class="osmall">${items.length} EXERCISES</div></div>
+    return `<div class="card ${stCls(st)} ${d.id === nd ? 'next-day' : ''}" data-a="me.day" data-day="${d.id}"><div class="grow">
+      <div class="ttl">${esc(d.name)}${d.id === nd ? ' · NEXT' : ''}</div><div class="osmall">${items.length} EXERCISES</div></div>
       <div class="obadge">${fin} / ${items.length}${st === 'done' ? ' ✓' : ''}</div></div>`;
   }).join('');
-  main(`<select class="in" data-ch="me.week" style="margin-bottom:10px">${opts}</select>${cards}`);
+  main(`${tabsHtml()}
+    <div class="ocard"><div class="orow"><span class="olabel">WEEK ${wk.w} OF ${wk.meso.weeks}</span>
+      <span class="olabel">${weekWorkouts(wk).done} / ${weekWorkouts(wk).total} DONE</span></div></div>
+    ${cards}
+    <button class="btn ghost" data-a="me.program">MY PROGRAM &amp; PERFORMANCE</button>`);
 }
-CHG['me.week'] = (el) => { T.ui.wi = +el.value; renderWeek(); };
 ACT['me.day'] = (ds) => { T.ui.day = ds.day; T.ui.screen = 'day'; renderDay(); };
 
 function renderDay() {
@@ -1343,9 +1413,12 @@ function renderDay() {
   const wk = curWeek();
   const d = wk.meso.days.find((x) => x.id === T.ui.day);
   if (!d) { T.ui.screen = 'week'; return renderWeek(); }
-  hdr({ title: 'W' + wk.g + ' • ' + d.name, back: true, right: syncPill() });
-  const items = dayItems(wk.meso, wk.w, d.id);
-  main(items.map((it, i) => {
+  hdr({ title: 'W' + wk.g + ' • ' + d.name, back: true, home: true, right: tRight() });
+  const items = curItems();
+  const dst = dayStatus(wk.meso, wk.w, d.id);
+  main(`<div class="row" style="margin-bottom:10px"><span class="grow muted">${items.length} exercises</span>
+      <button class="pill ${T.ui.reorder ? 'blue' : ''}" data-a="me.reorder">${T.ui.reorder ? 'DONE' : 'REORDER'}</button></div>` +
+    items.map((it, i) => {
     const ex = exById(it.ex) || { name: '—' };
     const st = exStatus(wk.meso, wk.w, it);
     const e = entryOf(wk.meso.id, wk.w, it.slot);
@@ -1354,12 +1427,32 @@ function renderDay() {
     return `<div class="card ${stCls(st)}" ${skipped ? '' : `data-a="me.ex" data-slot="${it.slot}"`}>
       <div class="grow"><div class="ttl">${i + 1}. ${esc(ex.name)}</div>
       ${skipped && e && e.reason ? `<div class="osmall">SKIPPED: ${esc(e.reason)}</div>` : ''}</div>
-      ${skipped ? `<button class="pill" data-a="me.unskipEx" data-slot="${it.slot}">UNDO</button>`
-                : `<button class="pill red" data-a="me.skipEx" data-slot="${it.slot}">SKIP</button>`}
+      ${T.ui.reorder
+        ? `<button class="sq" data-a="me.move" data-slot="${it.slot}" data-dir="-1" ${i === 0 ? 'disabled' : ''}>▲</button>
+           <button class="sq" data-a="me.move" data-slot="${it.slot}" data-dir="1" ${i === items.length - 1 ? 'disabled' : ''}>▼</button>`
+        : skipped ? `<button class="pill" data-a="me.unskipEx" data-slot="${it.slot}">UNDO</button>`
+                  : `<button class="pill red" data-a="me.skipEx" data-slot="${it.slot}">SKIP</button>`}
       <div class="obadge">${esc(String(badge))}</div></div>`;
   }).join('') + `<button class="btn ghost" data-a="me.skipDay">SKIP THIS DAY</button>`);
 }
-function curItems() { const wk = curWeek(); return dayItems(wk.meso, wk.w, T.ui.day); }
+function curItems() {
+  const wk = curWeek();
+  const items = dayItems(wk.meso, wk.w, T.ui.day);
+  const ord = (it) => { const e = entryOf(wk.meso.id, wk.w, it.slot); return e && e.ord ? e.ord : 100 + it.pos; };
+  return items.some((it) => { const e = entryOf(wk.meso.id, wk.w, it.slot); return e && e.ord; }) ? items.slice().sort((a, b) => ord(a) - ord(b)) : items;
+}
+ACT['me.reorder'] = () => { T.ui.reorder = !T.ui.reorder; renderDay(); };
+ACT['me.move'] = async (ds) => {
+  const wk = curWeek();
+  const items = curItems();
+  const i = items.findIndex((x) => x.slot === ds.slot), j = i + +ds.dir;
+  if (j < 0 || j >= items.length) return;
+  const reason = await askReason('Why are you changing the order?');
+  if (!reason) return;
+  const t = items[i]; items[i] = items[j]; items[j] = t;
+  items.forEach((it, k) => push('entries', entryRow(wk, it, { ord: k + 1, reason: (entryOf(wk.meso.id, wk.w, it.slot) || {}).reason || reason }), 'trainee_id,meso_id,week,slot'));
+  renderDay();
+};
 function curItem() { return curItems().find((x) => x.slot === T.ui.slot) || null; }
 
 async function askReason(title) {
@@ -1450,7 +1543,7 @@ function renderEx() {
   const wk = curWeek(), it = curItem();
   if (!it) { T.ui.screen = 'day'; return renderDay(); }
   const d = wk.meso.days.find((x) => x.id === T.ui.day);
-  hdr({ title: d ? d.name : '', back: true, right: syncPill() });
+  hdr({ title: d ? d.name : '', back: true, right: tRight() });
   T.ui.pos[wk.meso.id + '|' + wk.w + '|' + it.slot] = { n: T.ui.n, step: T.ui.step };
   const ex = exById(it.ex) || { name: '—' };
   const cur = setOf(wk.meso.id, wk.w, it.slot, T.ui.n) || {};
@@ -1483,7 +1576,7 @@ function renderEx() {
     : `<div class="osum"><div class="olabel">LAST LOG</div><div class="oempty">NO PREVIOUS LOG FOUND</div></div>`;
   main(`<div class="excard"><div class="otitle">${esc(ex.name)}</div>
       ${ex.video ? `<a class="pill" href="${esc(ex.video)}" target="_blank" rel="noopener">▶ VIDEO</a>` : ''}
-      ${cnote ? `<div class="cnote"><b>COACH</b>${esc(cnote)}</div>` : ''}</div>
+      ${cnote ? `<div class="note-y"><b>COACH NOTE</b>${esc(cnote)}</div>` : ''}</div>
     <div class="trow">${tbox('SET', T.ui.step === 'note' ? 'DONE' : T.ui.n + ' OF ' + it.sets)}${tbox('TARGET REPS', esc(it.reps))}</div>
     ${T.ui.step !== 'note' ? `<div class="row" style="margin-bottom:10px"><button class="pill grow" data-a="me.clearSet">CLEAR SET</button><button class="pill red grow" data-a="me.skipSet">SKIP SET</button></div>` : ''}
     ${isSkip(cur.status) && T.ui.step !== 'note' ? `<div class="skipbox">Set ${T.ui.n} skipped${cur.reason ? ': ' + esc(cur.reason) : ''}</div>` : ''}
@@ -1553,50 +1646,167 @@ function saveNote() {
   const v = String(T.ui.note).trim();
   if (v !== ((e && e.tnote) || '')) push('entries', entryRow(wk, it, { tnote: v }), 'trainee_id,meso_id,week,slot');
 }
-ACT['me.finish'] = () => { saveNote(); T.ui.screen = 'day'; renderDay(); };
+ACT['me.finish'] = () => {
+  saveNote();
+  const wk = curWeek();
+  T.ui.screen = 'day';
+  const items = dayItems(wk.meso, wk.w, T.ui.day);
+  if (items.every((it) => exFinished(wk.meso, wk.w, it))) return dayDone(wk);
+  renderDay();
+};
+function volumeOf(meso, w, dayId) {
+  let v = 0;
+  dayItems(meso, w, dayId).forEach((it) => {
+    for (let n = 1; n <= it.sets; n++) { const x = setOf(meso.id, w, it.slot, n); if (x && x.kg && x.reps) v += parseFloat(x.kg) * parseInt(x.reps, 10); }
+  });
+  return v;
+}
+function dayDone(wk) {
+  const day = wk.meso.days.find((d) => d.id === T.ui.day);
+  const now = volumeOf(wk.meso, wk.w, T.ui.day);
+  let prev = 0;
+  for (let i = T.ui.wi - 1; i >= 0; i--) { const p = T.D.weeks[i]; const v = volumeOf(p.meso, p.w, T.ui.day); if (v) { prev = v; break; } }
+  const pct = prev ? Math.round(((now - prev) / prev) * 1000) / 10 : null;
+  const items = dayItems(wk.meso, wk.w, T.ui.day);
+  const lines = items.map((it) => {
+    const ex = exById(it.ex) || { name: '—' };
+    const sets = [];
+    for (let n = 1; n <= it.sets; n++) { const x = setOf(wk.meso.id, wk.w, it.slot, n); const st = setState(x); sets.push(st === 'skip' ? 'skip' : st === 'empty' ? '—' : x.kg + '×' + x.reps); }
+    return `<div class="sumline"><span>${esc(ex.name)}</span><span class="muted">${esc(sets.join(' · '))}</span></div>`;
+  }).join('');
+  openModal(`<h3>${esc(day ? day.name : '')} done 💪</h3>
+    <div class="ocard center"><div class="olabel">TOTAL VOLUME</div><div class="progbig">${Math.round(now)}</div>
+      <div class="muted">${pct === null ? 'First time for this day — next week we compare.' : (pct >= 0 ? '+' : '') + pct + '% vs last week'}</div></div>
+    ${lines}
+    <button class="btn" data-a="me.doneGo">DONE</button>`);
+}
+ACT['me.doneGo'] = () => { closeModal(); T.ui.screen = 'home'; renderTHome(); };
+
+ACT['me.program'] = () => {
+  T.ui.screen = 'prog';
+  const cur = T.D.weeks.length ? T.D.weeks[T.D.weeks.length - 1].meso : null;
+  if (!cur) return renderWeek();
+  hdr({ title: 'MY PROGRAM', back: true, home: true, right: tRight() });
+  const weeks = T.D.weeks.filter((x) => x.meso.id === cur.id);
+  const older = T.D.weeks.filter((x) => x.meso.id !== cur.id).slice(-1);
+  const cols = older.concat(weeks);
+  const body = cur.days.map((d) => {
+    const items = dayItems(cur, weeks[weeks.length - 1].w, d.id);
+    return `<tr><td class="me" colspan="${cols.length + 1}" style="background:var(--card2)">${esc(d.name)}</td></tr>` +
+      items.map((it) => {
+        const ex = exById(it.ex) || { name: '—' };
+        const cells = cols.map((x) => {
+          const its = dayItems(x.meso, x.w, d.id).find((y) => String(y.ex) === String(it.ex));
+          if (!its) return '<td>—</td>';
+          let best = '';
+          for (let n = 1; n <= its.sets; n++) { const s = setOf(x.meso.id, x.w, its.slot, n); if (s && s.kg && s.reps) best = s.kg + '×' + s.reps; }
+          return `<td>${esc(best || '—')}</td>`;
+        }).join('');
+        return `<tr><td class="me">${esc(ex.name)}</td>${cells}</tr>`;
+      }).join('');
+  }).join('');
+  main(`<p class="muted">Your program and your best set each week.</p>
+    <div style="overflow-x:auto"><table class="tbl"><tr><th>EXERCISE</th>${cols.map((x) => `<th>W${x.g}</th>`).join('')}</tr>${body}</table></div>`);
+};
 
 /* ---------- daily check-in ---------- */
 const SLEEP = ['4-5', '5-6', '7-8', '9+'];
-const STEPS = ['2000-3000', '4000-5000', '6000-8000', '9000-12000', '+13000'];
-const ACTIVITY = ['30-60 min', '1-1.5 h', '2-3 h'];
-ACT['me.check'] = () => { T.ui.screen = 'check'; T.ui.day0 = today(); renderCheck(); };
+const STEPS = ['2k-3k', '4k-5k', '6k-8k', '9k-12k', 'other'];
+const ACTIVITY = ['none', '30-60 min', '60-90 min', '2-3 h'];
+const ACT_TYPES = ['Padel or tennis', 'Football', 'Volleyball', 'Swimming', 'Running or cycling', 'Combat sports', 'Other (write it in the notes)'];
+const TIPS = {
+  top: 'Log every day before your day ends — or first thing in the morning for the day before.',
+  weight: 'Weigh yourself right after you wake up, after the bathroom, in underwear only.',
+  protein: 'If your protein was more than 20g below target choose NO. If it was within 20g or above, choose YES.',
+  activity: 'Did you do unusual hard activity? A sport you already play regularly, done as usual, is not unusual activity.',
+  sleep: 'Hours you actually slept.',
+  steps: 'Total steps for the day.',
+  kcal: 'Total calories you ate.'
+};
+ACT['me.check'] = () => { T.ui.tab = 'check'; T.ui.screen = 'check'; T.ui.day0 = today(); renderCheck(); };
+ACT['me.tip'] = (ds) => openModal(`<h3>${esc(ds.t === 'top' ? 'Daily tracker' : ds.t)}</h3><p>${esc(TIPS[ds.t] || '')}</p><button class="btn ghost" data-a="modal.no">OK</button>`);
+function checkState(day) {
+  const c = checkOf(day);
+  const filled = ['sleep_band', 'steps_band', 'activity_band'].filter((k) => c[k]).length + (c.weight != null ? 1 : 0) + (c.kcal != null ? 1 : 0) + (c.protein_ok != null ? 1 : 0);
+  if (filled >= 6) return 'done';
+  if (day > today()) return 'soon';
+  if (filled > 0) return 'part';
+  return day < today() ? 'miss' : 'part';
+}
 function checkOf(day) { return T.D.checkins.find((c) => c.day === day) || {}; }
 function renderCheck() {
   T.ui.screen = 'check';
   const day = T.ui.day0 || today();
-  const c = checkOf(day);
-  hdr({ title: 'DAILY CHECK-IN', back: true, right: syncPill() });
-  const band = (name, list, val) => `<div class="lbl">${name}</div><div class="bands">${list.map((v) =>
-    `<button class="${val === v ? 'on' : ''}" data-a="me.band" data-f="${name === 'SLEEP' ? 'sleep_band' : name === 'STEPS' ? 'steps_band' : 'activity_band'}" data-v="${esc(v)}">${esc(v)}</button>`).join('')}</div>`;
-  const days = [0, 1, 2].map((i) => addDays(today(), -i));
-  main(`<div class="row" style="margin-bottom:10px">${days.map((d) => `<button class="pill ${d === day ? 'blue' : ''}" data-a="me.checkDay" data-d="${d}">${d === today() ? 'TODAY' : esc(d.slice(5))}</button>`).join('')}</div>
-    ${band('SLEEP', SLEEP, c.sleep_band)}
-    ${band('STEPS', STEPS, c.steps_band)}
-    <div class="lbl">WEIGHT (KG)</div><input class="in" id="ciWeight" inputmode="decimal" value="${c.weight != null ? esc(c.weight) : ''}">
-    <div class="lbl">CALORIES</div><input class="in" id="ciKcal" inputmode="numeric" value="${c.kcal != null ? esc(c.kcal) : ''}">
-    <div class="lbl">PROTEIN TARGET</div><div class="bands">
-      <button class="${c.protein_ok === true ? 'on' : ''}" data-a="me.protein" data-v="1">YES</button>
+  const c = Object.assign({}, checkOf(day), T.ui.draft && T.ui.draft.day === day ? T.ui.draft.v : {});
+  hdr({ title: 'DAILY TRACKER', home: true, right: tRight() });
+  const tgt = (v, unit) => (v ? `<span class="target">TARGET ${esc(v)}${unit || ''}</span>` : '');
+  const head = (name, tip, target) => `<div class="lblrow"><span class="lbl">${name}</span>
+    <button class="q" data-a="me.tip" data-t="${tip}">؟</button>${target}</div>`;
+  const band = (list, field, val) => `<div class="bands">${list.map((v) =>
+    `<button class="${val === v ? 'on' : ''}" data-a="me.band" data-f="${field}" data-v="${esc(v)}">${esc(v)}</button>`).join('')}</div>`;
+  const st = checkState(day);
+  main(`${tabsHtml()}
+    <div class="lblrow"><span class="lbl">${day === today() ? 'TODAY' : esc(day)}</span>
+      <button class="q" data-a="me.tip" data-t="top">؟</button></div>
+    <div class="dayrow">
+      <button class="sq" data-a="me.dayStep" data-v="-1">‹</button>
+      <button class="daybtn ${st}" data-a="me.cal">${day === today() ? 'TODAY · ' + esc(day.slice(5)) : esc(day)}</button>
+      <button class="sq" data-a="me.dayStep" data-v="1" ${day >= today() ? 'disabled' : ''}>›</button></div>
+
+    ${head('SLEEP', 'sleep', tgt('7-9', 'h'))}${band(SLEEP, 'sleep_band', c.sleep_band)}
+    ${head('STEPS', 'steps', tgt(A.me.target_steps))}${band(STEPS, 'steps_band', c.steps_band)}
+    ${c.steps_band === 'other' ? `<input class="in" id="ciSteps" inputmode="numeric" placeholder="How many steps?" value="${c.steps_other != null ? esc(c.steps_other) : ''}" data-in="me.draftSteps" style="margin-top:8px">` : ''}
+    ${head('WEIGHT (KG)', 'weight', '')}<input class="in" id="ciWeight" inputmode="decimal" value="${c.weight != null ? esc(c.weight) : ''}" data-in="me.draftWeight">
+    ${head('CALORIES', 'kcal', tgt(A.me.target_kcal))}<input class="in" id="ciKcal" inputmode="numeric" value="${c.kcal != null ? esc(c.kcal) : ''}" data-in="me.draftKcal">
+    ${head('PROTEIN TARGET', 'protein', tgt(A.me.target_protein, 'g'))}
+    <div class="bands"><button class="${c.protein_ok === true ? 'on' : ''}" data-a="me.protein" data-v="1">YES</button>
       <button class="${c.protein_ok === false ? 'on' : ''}" data-a="me.protein" data-v="0">NO</button></div>
-    ${band('ACTIVITY', ACTIVITY, c.activity_band)}
-    ${c.activity_band ? `<div class="lbl">ACTIVITY TYPE</div><input class="in" id="ciType" value="${esc(c.activity_type || '')}" placeholder="e.g. padel">` : ''}
-    <div class="lbl">ANYTHING UNUSUAL</div><textarea class="ta" id="ciNote" maxlength="500">${esc(c.note || '')}</textarea>
+    ${head('ACTIVITY', 'activity', '')}${band(ACTIVITY, 'activity_band', c.activity_band)}
+    ${c.activity_band && c.activity_band !== 'none' ? `<div class="bands" style="margin-top:8px">${ACT_TYPES.map((v) =>
+      `<button class="${c.activity_type === v ? 'on' : ''}" data-a="me.band" data-f="activity_type" data-v="${esc(v)}">${esc(v)}</button>`).join('')}</div>` : ''}
+    <div class="lblrow"><span class="lbl">ANYTHING UNUSUAL</span></div>
+    <textarea class="ta" id="ciNote" maxlength="500" data-in="me.draftNote">${esc(c.note || '')}</textarea>
     <button class="btn" data-a="me.checkSave">SAVE</button>`);
 }
-ACT['me.checkDay'] = (ds) => { T.ui.day0 = ds.d; renderCheck(); };
+function draft(patch) {
+  const day = T.ui.day0 || today();
+  if (!T.ui.draft || T.ui.draft.day !== day) T.ui.draft = { day, v: {} };
+  Object.assign(T.ui.draft.v, patch);
+}
+INP['me.draftWeight'] = (el) => draft({ weight: el.value.trim() === '' ? null : Number(el.value) });
+INP['me.draftKcal'] = (el) => draft({ kcal: el.value.trim() === '' ? null : Number(el.value) });
+INP['me.draftSteps'] = (el) => draft({ steps_other: el.value.trim() });
+INP['me.draftNote'] = (el) => draft({ note: el.value });
+ACT['me.dayStep'] = (ds) => {
+  const d = addDays(T.ui.day0 || today(), +ds.v);
+  if (d > today()) return;
+  T.ui.day0 = d;
+  T.ui.draft = null;
+  renderCheck();
+};
+ACT['me.cal'] = () => {
+  const day = T.ui.day0 || today();
+  const start = weekStart(addDays(day, -21));
+  let cells = ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((h) => `<div class="hd">${h}</div>`).join('');
+  for (let i = 0; i < 28; i++) {
+    const d = addDays(start, i);
+    cells += `<button class="${checkState(d)}" data-a="me.calPick" data-d="${d}" ${d > today() ? 'disabled' : ''}>${+d.slice(8)}</button>`;
+  }
+  openModal(`<h3>Pick a day</h3><div class="cal">${cells}</div>
+    <p class="sub" style="margin-top:10px">green complete · red missed · yellow still open · grey upcoming</p>
+    <button class="btn ghost" data-a="modal.no">CLOSE</button>`);
+};
+ACT['me.calPick'] = (ds) => { T.ui.day0 = ds.d; T.ui.draft = null; closeModal(); renderCheck(); };
 function saveCheck(patch) {
   const day = T.ui.day0 || today();
-  push('checkins', Object.assign({ day, updated_at: new Date().toISOString() }, checkOf(day), patch), 'trainee_id,day');
+  const cur = Object.assign({}, checkOf(day), T.ui.draft && T.ui.draft.day === day ? T.ui.draft.v : {});
+  delete cur.id;
+  delete cur.created_at;
+  push('checkins', Object.assign(cur, { day, updated_at: new Date().toISOString() }, patch), 'trainee_id,day');
 }
 ACT['me.band'] = (ds) => { saveCheck({ [ds.f]: ds.v }); renderCheck(); };
 ACT['me.protein'] = (ds) => { saveCheck({ protein_ok: ds.v === '1' }); renderCheck(); };
-ACT['me.checkSave'] = () => {
-  const num = (v) => (v === '' ? null : Number(v));
-  saveCheck({ weight: num($('#ciWeight').value.trim()), kcal: num($('#ciKcal').value.trim()),
-              activity_type: $('#ciType') ? $('#ciType').value.trim() : '', note: $('#ciNote').value.trim() });
-  toast('Saved');
-  T.ui.screen = 'home';
-  renderTHome();
-};
+ACT['me.checkSave'] = () => { saveCheck({}); T.ui.draft = null; toast('Saved'); renderCheck(); };
 
 /* ======================================================================
    BOOT
