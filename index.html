@@ -154,6 +154,13 @@ button:disabled{opacity:.35;cursor:default}
 .tabs2{display:flex;gap:8px;margin-bottom:12px}
 .tabs2 button{flex:1;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:12px 6px;font-size:12px;font-weight:800;letter-spacing:.06em;color:var(--muted)}
 .tabs2 button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.tdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-left:4px;vertical-align:middle}
+.tdot.green{background:var(--green)}.tdot.amber{background:var(--amber)}.tdot.red{background:var(--red)}
+.chips{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;padding-bottom:2px}
+.schip{flex:none;border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:10px;padding:7px 10px;font-size:13px;font-weight:700;min-width:64px;text-align:center}
+.schip small{display:block;font-size:10px;color:var(--muted)}
+.schip.on{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue) inset}
+.schip.done{background:#0f2a18}.schip.skip{background:#2a1313}
 .dayrow{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .dayrow .sq{width:38px;height:38px}
 .daybtn{flex:1;border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:12px;padding:10px;font-weight:800}
@@ -281,6 +288,13 @@ const SB = {
     }
     return data;
   },
+  async signUp(email, password) {
+    const s = await SB.call('/auth/v1/signup', { method: 'POST', auth: false, body: { email, password } });
+    const sess = s.access_token ? s : (s.session || null);
+    if (!sess || !sess.access_token) throw new AppError('server', 'Account created — please sign in.');
+    SB.save({ access_token: sess.access_token, refresh_token: sess.refresh_token, expires_at: Date.now() + (sess.expires_in || 3600) * 1000, user: sess.user || s.user }, true);
+    return SB.session;
+  },
   async signIn(email, password, remember) {
     const s = await SB.call('/auth/v1/token?grant_type=password', { method: 'POST', auth: false, body: { email, password } });
     SB.save({ access_token: s.access_token, refresh_token: s.refresh_token, expires_at: Date.now() + (s.expires_in || 3600) * 1000, user: s.user }, remember);
@@ -345,7 +359,17 @@ document.addEventListener('click', (ev) => {
   if (fn) { ev.preventDefault(); ev.stopPropagation(); fn(el.dataset, el); }
 });
 $('#modal').addEventListener('click', (ev) => { if (ev.target.id === 'modal') { if (Modal.resolve) modalDone(null); else closeModal(); } });
-document.addEventListener('input', (ev) => { const el = ev.target.closest('[data-in]'); if (el && INP[el.dataset.in]) INP[el.dataset.in](el); });
+const AR_DIGITS = { '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9' };
+function enDigits(v) { return String(v).replace(/[٠-٩۰-۹]/g, (d) => AR_DIGITS[d]); }
+document.addEventListener('input', (ev) => {
+  const el = ev.target;
+  if (el.tagName === 'INPUT' && /numeric|decimal/.test(el.inputMode || '')) {
+    const fixed = enDigits(el.value);
+    if (fixed !== el.value) { const p = el.selectionStart; el.value = fixed; try { el.setSelectionRange(p, p); } catch (_) {} }
+  }
+  const t = ev.target.closest('[data-in]');
+  if (t && INP[t.dataset.in]) INP[t.dataset.in](t);
+});
 document.addEventListener('change', (ev) => { const el = ev.target.closest('[data-ch]'); if (el && CHG[el.dataset.ch]) CHG[el.dataset.ch](el); });
 ACT['modal.yes'] = () => modalDone(true);
 ACT['modal.no'] = () => modalDone(null);
@@ -552,9 +576,14 @@ function renderTrainee() {
       <div class="row" style="margin-top:10px">
         <div class="grow"><div class="lbl" style="margin-top:0">Status</div>
           <select class="in" data-ch="tr.status">${opts(['new', 'active', 'paused', 'expired'], p.status)}</select></div>
-        <div class="grow"><div class="lbl" style="margin-top:0">Package</div>
-          <select class="in" data-ch="tr.pkg"><option value=""></option>${opts(['الأساسية', 'الأساسية + الحاسبة', 'البريميوم'], p.package)}</select></div>
       </div></div>
+
+    <div class="box"><div class="lbl" style="margin-top:0">Account</div>
+      <div class="row"><input class="in" id="trName" value="${esc(p.name || '')}" maxlength="60">
+        <button class="pill blue" data-a="tr.rename">SAVE</button></div>
+      <div class="sumline" style="margin-top:10px"><span class="muted">Email</span><span>${esc(p.email || '')}</span></div>
+      <div class="sumline"><span class="muted">Code</span><span>${esc(p.access_code || '—')}</span></div>
+      <button class="btn sm ghost" data-a="tr.copy">COPY SIGN-IN DETAILS</button></div>
 
     <div class="box"><div class="lbl" style="margin-top:0">Daily targets</div>
       <div class="row">
@@ -631,6 +660,18 @@ CHG['tr.status'] = async (el) => {
 CHG['tr.pkg'] = async (el) => {
   try { await SB.upd('profiles', { id: A.tr.id }, { package: el.value }); A.tr.package = el.value; toast('Saved'); }
   catch (err) { toast(err.message); }
+};
+ACT['tr.rename'] = async (ds, el) => {
+  const name = $('#trName').value.trim();
+  if (!name) return toast('Write a name');
+  el.disabled = true;
+  try { await SB.upd('profiles', { id: A.tr.id }, { name }); A.tr.name = name; const d = trainees().find((x) => x.id === A.tr.id); if (d) d.name = name; toast('Saved'); renderTrainee(); }
+  catch (err) { toast(err.message); el.disabled = false; }
+};
+ACT['tr.copy'] = async () => {
+  const txt = `Hajime\n${location.origin}\nEmail: ${A.tr.email}\nCode: ${A.tr.access_code || ''}`;
+  try { await navigator.clipboard.writeText(txt); toast('Copied'); }
+  catch (_) { openModal(`<h3>Sign-in details</h3><pre style="white-space:pre-wrap">${esc(txt)}</pre><button class="btn ghost" data-a="modal.no">CLOSE</button>`); }
 };
 ACT['tr.saveTargets'] = async (ds, el) => {
   const num = (id) => { const v = $('#' + id).value.trim(); return v === '' ? null : Number(v); };
@@ -1357,27 +1398,24 @@ function weekWorkouts(wk) {
 }
 function renderTHome() {
   T.ui.screen = 'home';
+  T.ui.tab = '';
   hdr({ title: 'HAJIME', right: tRight() });
-  const sub = A.me.end_date ? daysBetween(today(), A.me.end_date) : null;
-  const subLine = sub === null ? '' : `<div class="ocard"><div class="orow"><span class="olabel">SUBSCRIPTION</span>
-      <span class="${sub < 0 ? 'chip red' : sub <= 7 ? 'chip amber' : 'chip green'}">${sub < 0 ? 'GRACE ' + (GRACE + sub) + 'D' : sub + ' DAYS LEFT'}</span></div></div>`;
-  if (!T.D.weeks.length) {
-    return main(`<div class="logo">HAJIME</div>${subLine}
-      <div class="ocard center"><p class="muted">Your program isn’t ready yet. Your coach will publish it soon.</p></div>
-      <button class="btn" data-a="me.check">DAILY TRACKER</button>`);
-  }
-  const wk = T.D.weeks[currentWeekIndex()];
-  const w = weekWorkouts(wk);
+  hdr({ title: 'HAJIME', right: tRight() });
+  const st = access() === 'paused' ? 'PAUSED' : access() === 'expired' ? 'ENDED' : 'ACTIVE';
+  const stTone = st === 'ACTIVE' ? 'green' : st === 'PAUSED' ? 'amber' : 'red';
+  const wk = T.D.weeks.length ? T.D.weeks[currentWeekIndex()] : null;
   const cst = checkState(today());
-  const tone = cst === 'done' ? 'green' : cst === 'miss' ? 'red' : 'amber';
-  const wtone = w.done === w.total ? 'green' : w.done ? 'amber' : 'red';
-  main(`<div class="logo">HAJIME</div>${subLine}
-    <div class="ocard"><div class="orow"><span class="olabel">CURRENT FOCUS</span><span style="color:var(--blue);font-weight:800">WEEK ${wk.g}</span></div>
-      <div style="font-size:18px;font-weight:900">${w.done} OF ${w.total} WORKOUTS DONE</div>
-      <div class="obar"><div style="width:${w.total ? Math.round(w.done / w.total * 100) : 0}%"></div></div></div>
-    <div class="row" style="gap:8px;margin:8px 0"><span class="chip ${tone}">TODAY'S TRACKER</span><span class="chip ${wtone}">WORKOUTS ${w.done}/${w.total}</span></div>
-    <button class="btn" data-a="me.check">DAILY TRACKER</button>
-    <button class="btn ghost" data-a="me.start">START WORKOUT</button>`);
+  const wdone = wk ? weekWorkouts(wk) : { done: 0, total: 0 };
+  const dot = (tone) => `<span class="tdot ${tone}"></span>`;
+  main(`<div class="row" style="justify-content:center;gap:8px;margin-bottom:12px">
+      ${wk ? `<span class="chip blue">WEEK ${wk.w} OF ${wk.meso.weeks}</span>` : ''}
+      <span class="chip ${stTone}">${st}</span></div>
+    <div class="tabs2">
+      <button data-a="me.tabCheck">DAILY TRACKER ${dot(cst === 'done' ? 'green' : cst === 'miss' ? 'red' : 'amber')}</button>
+      <button data-a="me.tabWork">WORKOUT ${dot(!wk ? 'red' : wdone.done === wdone.total ? 'green' : wdone.done ? 'amber' : 'red')}</button></div>
+    <div class="logo" style="margin-top:50px">HAJIME</div>
+    <p class="center" style="font-size:19px;font-weight:800">Welcome ${esc((A.me.name || '').split(' ')[0] || '')}</p>
+    ${wk ? '' : '<p class="center muted">Your program isn’t ready yet. Your coach will publish it soon.</p>'}`);
 }
 ACT['me.start'] = () => ACT['me.tabWork']();
 ACT['me.home'] = () => { T.ui.screen = 'home'; renderTHome(); };
@@ -1543,7 +1581,7 @@ function renderEx() {
   const wk = curWeek(), it = curItem();
   if (!it) { T.ui.screen = 'day'; return renderDay(); }
   const d = wk.meso.days.find((x) => x.id === T.ui.day);
-  hdr({ title: d ? d.name : '', back: true, right: tRight() });
+  hdr({ title: d ? d.name : '', back: true, home: true, right: tRight() });
   T.ui.pos[wk.meso.id + '|' + wk.w + '|' + it.slot] = { n: T.ui.n, step: T.ui.step };
   const ex = exById(it.ex) || { name: '—' };
   const cur = setOf(wk.meso.id, wk.w, it.slot, T.ui.n) || {};
@@ -1574,10 +1612,19 @@ function renderEx() {
         ${prev.sets.map((x) => `<div class="osumrow"><span style="color:var(--blue)">S${x.n}</span><span class="grow">${x.st === 'skip' ? 'SKIPPED' : esc(x.kg || '—') + ' KG × ' + esc(x.reps || '—')}</span></div>`).join('')}
         ${prev.tnote ? `<div class="onote"><b>NOTE:</b> ${esc(prev.tnote)}</div>` : ''}</div>`
     : `<div class="osum"><div class="olabel">LAST LOG</div><div class="oempty">NO PREVIOUS LOG FOUND</div></div>`;
+  let chips = '';
+  for (let k = 1; k <= it.sets; k++) {
+    const x = setOf(wk.meso.id, wk.w, it.slot, k);
+    const st = setState(x);
+    const val = st === 'skip' ? 'SKIP' : st === 'empty' ? '—' : (x.kg || '—') + '×' + (x.reps || '—');
+    chips += `<button class="schip ${st === 'done' ? 'done' : st === 'skip' ? 'skip' : ''} ${T.ui.step !== 'note' && k === T.ui.n ? 'on' : ''}" data-a="me.chip" data-n="${k}"><small>SET ${k}</small>${esc(val)}</button>`;
+  }
+  chips += `<button class="schip ${T.ui.step === 'note' ? 'on' : ''}" data-a="me.chip" data-n="note"><small>NOTE</small>✎</button>`;
   main(`<div class="excard"><div class="otitle">${esc(ex.name)}</div>
       ${ex.video ? `<a class="pill" href="${esc(ex.video)}" target="_blank" rel="noopener">▶ VIDEO</a>` : ''}
       ${cnote ? `<div class="note-y"><b>COACH NOTE</b>${esc(cnote)}</div>` : ''}</div>
     <div class="trow">${tbox('SET', T.ui.step === 'note' ? 'DONE' : T.ui.n + ' OF ' + it.sets)}${tbox('TARGET REPS', esc(it.reps))}</div>
+    <div class="chips">${chips}</div>
     ${T.ui.step !== 'note' ? `<div class="row" style="margin-bottom:10px"><button class="pill grow" data-a="me.clearSet">CLEAR SET</button><button class="pill red grow" data-a="me.skipSet">SKIP SET</button></div>` : ''}
     ${isSkip(cur.status) && T.ui.step !== 'note' ? `<div class="skipbox">Set ${T.ui.n} skipped${cur.reason ? ': ' + esc(cur.reason) : ''}</div>` : ''}
     ${panel}${prevHtml}`);
@@ -1588,6 +1635,11 @@ function setRow(patch) {
   return Object.assign({ meso_id: wk.meso.id, week: wk.w, slot: it.slot, n: T.ui.n, ex_id: it.ex,
     kg: cur.kg || '', reps: cur.reps || '', status: cur.status || '', reason: cur.reason || '', updated_at: new Date().toISOString() }, patch);
 }
+ACT['me.chip'] = (ds) => {
+  if (ds.n === 'note') { T.ui.step = 'note'; }
+  else { T.ui.n = +ds.n; T.ui.step = 'kg'; T.ui.k1 = ''; T.ui.err = ''; }
+  renderEx();
+};
 ACT['me.key'] = (ds) => {
   let v = T.ui.k1;
   if (ds.k === 'del') v = v.slice(0, -1);
@@ -1676,7 +1728,8 @@ function dayDone(wk) {
   }).join('');
   openModal(`<h3>${esc(day ? day.name : '')} done 💪</h3>
     <div class="ocard center"><div class="olabel">TOTAL VOLUME</div><div class="progbig">${Math.round(now)}</div>
-      <div class="muted">${pct === null ? 'First time for this day — next week we compare.' : (pct >= 0 ? '+' : '') + pct + '% vs last week'}</div></div>
+      <div class="muted">${pct === null ? 'First time for this day — next week we compare.' : (pct >= 0 ? '+' : '') + pct + '% vs last week'}</div>
+      <div style="font-weight:800;margin-top:4px">${esc(pct === null ? 'Good start. Keep this pace.' : pct > 0 ? 'Stronger than last week. Keep going.' : pct === 0 ? 'Same as last week — steady is fine, push a little next time.' : 'Lighter than last week. It happens — come back stronger next session.')}</div></div>
     ${lines}
     <button class="btn" data-a="me.doneGo">DONE</button>`);
 }
@@ -1715,16 +1768,14 @@ const STEPS = ['2k-3k', '4k-5k', '6k-8k', '9k-12k', 'other'];
 const ACTIVITY = ['none', '30-60 min', '60-90 min', '2-3 h'];
 const ACT_TYPES = ['Padel or tennis', 'Football', 'Volleyball', 'Swimming', 'Running or cycling', 'Combat sports', 'Other (write it in the notes)'];
 const TIPS = {
-  top: 'Log every day before your day ends — or first thing in the morning for the day before.',
-  weight: 'Weigh yourself right after you wake up, after the bathroom, in underwear only.',
-  protein: 'If your protein was more than 20g below target choose NO. If it was within 20g or above, choose YES.',
-  activity: 'Did you do unusual hard activity? A sport you already play regularly, done as usual, is not unusual activity.',
-  sleep: 'Hours you actually slept.',
-  steps: 'Total steps for the day.',
-  kcal: 'Total calories you ate.'
+  top: 'هنا تسجّل بشكل يومي قبل نهاية يومك، أو إذا صحيت تسجّل لليوم اللي فات.',
+  weight: 'وزنك أول ما تصحى، بعد ما تروح دورة المياه، وبملابس داخلية فقط.',
+  protein: 'إذا كان بروتينك أقل من الهدف بـ 20 جرام حط «لا»، وإذا كان قريب من الهدف بـ 20 جرام أو فوق الاحتياج حط «نعم».',
+  activity: 'هل مارست نشاطًا مجهدًا غير اعتيادي؟ ملاحظة: إذا كنت بالاستبيان مسجّل رياضة تلعبها بشكل دوري وسويتها كالمعتاد، فما تُعتبر نشاطًا غير اعتيادي.'
 };
+const TIP_TITLE = { top: 'التسجيل اليومي', weight: 'الوزن', protein: 'البروتين', activity: 'النشاط' };
 ACT['me.check'] = () => { T.ui.tab = 'check'; T.ui.screen = 'check'; T.ui.day0 = today(); renderCheck(); };
-ACT['me.tip'] = (ds) => openModal(`<h3>${esc(ds.t === 'top' ? 'Daily tracker' : ds.t)}</h3><p>${esc(TIPS[ds.t] || '')}</p><button class="btn ghost" data-a="modal.no">OK</button>`);
+ACT['me.tip'] = (ds) => openModal(`<h3 dir="rtl">${esc(TIP_TITLE[ds.t] || '')}</h3><p dir="rtl" style="text-align:right;line-height:1.8">${esc(TIPS[ds.t] || '')}</p><button class="btn ghost" data-a="modal.no">OK</button>`);
 function checkState(day) {
   const c = checkOf(day);
   const filled = ['sleep_band', 'steps_band', 'activity_band'].filter((k) => c[k]).length + (c.weight != null ? 1 : 0) + (c.kcal != null ? 1 : 0) + (c.protein_ok != null ? 1 : 0);
@@ -1741,7 +1792,7 @@ function renderCheck() {
   hdr({ title: 'DAILY TRACKER', home: true, right: tRight() });
   const tgt = (v, unit) => (v ? `<span class="target">TARGET ${esc(v)}${unit || ''}</span>` : '');
   const head = (name, tip, target) => `<div class="lblrow"><span class="lbl">${name}</span>
-    <button class="q" data-a="me.tip" data-t="${tip}">؟</button>${target}</div>`;
+    ${tip ? `<button class="q" data-a="me.tip" data-t="${tip}">؟</button>` : ''}${target}</div>`;
   const band = (list, field, val) => `<div class="bands">${list.map((v) =>
     `<button class="${val === v ? 'on' : ''}" data-a="me.band" data-f="${field}" data-v="${esc(v)}">${esc(v)}</button>`).join('')}</div>`;
   const st = checkState(day);
@@ -1753,11 +1804,11 @@ function renderCheck() {
       <button class="daybtn ${st}" data-a="me.cal">${day === today() ? 'TODAY · ' + esc(day.slice(5)) : esc(day)}</button>
       <button class="sq" data-a="me.dayStep" data-v="1" ${day >= today() ? 'disabled' : ''}>›</button></div>
 
-    ${head('SLEEP', 'sleep', tgt('7-9', 'h'))}${band(SLEEP, 'sleep_band', c.sleep_band)}
-    ${head('STEPS', 'steps', tgt(A.me.target_steps))}${band(STEPS, 'steps_band', c.steps_band)}
+    ${head('SLEEP', '', tgt('7-9', 'h'))}${band(SLEEP, 'sleep_band', c.sleep_band)}
+    ${head('STEPS', '', tgt(A.me.target_steps))}${band(STEPS, 'steps_band', c.steps_band)}
     ${c.steps_band === 'other' ? `<input class="in" id="ciSteps" inputmode="numeric" placeholder="How many steps?" value="${c.steps_other != null ? esc(c.steps_other) : ''}" data-in="me.draftSteps" style="margin-top:8px">` : ''}
     ${head('WEIGHT (KG)', 'weight', '')}<input class="in" id="ciWeight" inputmode="decimal" value="${c.weight != null ? esc(c.weight) : ''}" data-in="me.draftWeight">
-    ${head('CALORIES', 'kcal', tgt(A.me.target_kcal))}<input class="in" id="ciKcal" inputmode="numeric" value="${c.kcal != null ? esc(c.kcal) : ''}" data-in="me.draftKcal">
+    ${head('CALORIES', '', tgt(A.me.target_kcal))}<input class="in" id="ciKcal" inputmode="numeric" value="${c.kcal != null ? esc(c.kcal) : ''}" data-in="me.draftKcal">
     ${head('PROTEIN TARGET', 'protein', tgt(A.me.target_protein, 'g'))}
     <div class="bands"><button class="${c.protein_ok === true ? 'on' : ''}" data-a="me.protein" data-v="1">YES</button>
       <button class="${c.protein_ok === false ? 'on' : ''}" data-a="me.protein" data-v="0">NO</button></div>
@@ -1806,12 +1857,122 @@ function saveCheck(patch) {
 }
 ACT['me.band'] = (ds) => { saveCheck({ [ds.f]: ds.v }); renderCheck(); };
 ACT['me.protein'] = (ds) => { saveCheck({ protein_ok: ds.v === '1' }); renderCheck(); };
-ACT['me.checkSave'] = () => { saveCheck({}); T.ui.draft = null; toast('Saved'); renderCheck(); };
+ACT['me.checkSave'] = () => {
+  saveCheck({});
+  T.ui.draft = null;
+  const day = T.ui.day0 || today();
+  const c = checkOf(day);
+  const y = checkOf(addDays(day, -1));
+  const rows = [];
+  const line = (label, val, tone, note) => rows.push(`<div class="sumline"><span>${esc(label)}</span><span class="chip ${tone}">${esc(val)}${note ? ' · ' + note : ''}</span></div>`);
+  if (c.kcal != null) {
+    const t = A.me.target_kcal;
+    const diff = t ? c.kcal - t : null;
+    line('Calories', c.kcal + (t ? ' / ' + t : ''), !t ? '' : Math.abs(diff) <= 100 ? 'green' : 'amber', diff === null ? '' : (diff > 0 ? '+' + diff : diff));
+  }
+  if (c.protein_ok != null) line('Protein', c.protein_ok ? 'hit' : 'missed', c.protein_ok ? 'green' : 'amber');
+  if (c.steps_band) line('Steps', c.steps_band, 'blue');
+  if (c.sleep_band) line('Sleep', c.sleep_band + ' h', ['7-8', '9+'].includes(c.sleep_band) ? 'green' : 'amber');
+  if (c.weight != null) {
+    const d = y.weight != null ? Math.round((c.weight - y.weight) * 10) / 10 : null;
+    line('Weight', c.weight + ' kg', 'blue', d === null ? '' : (d > 0 ? '+' + d : d) + ' vs yesterday');
+  }
+  const wins = [c.protein_ok === true, ['7-8', '9+'].includes(c.sleep_band), A.me.target_kcal && Math.abs(c.kcal - A.me.target_kcal) <= 100].filter(Boolean).length;
+  const msg = wins >= 2 ? 'Strong day. This is exactly how progress is built.'
+            : wins === 1 ? 'Decent day — one habit was on point. Tighten one more tomorrow.'
+            : 'Today was off target, and that is fine. Log tomorrow and get one thing right.';
+  openModal(`<h3>Day logged</h3>${rows.join('') || '<p class="muted">Saved.</p>'}
+    <p style="font-weight:800;margin-top:12px">${esc(msg)}</p>
+    <button class="btn" data-a="me.doneGo">DONE</button>`);
+};
+
+/* ======================================================================
+   JOIN: the questionnaire that creates the account
+   ====================================================================== */
+const JOIN_Q = [
+  { k: 'age', t: 'العمر', type: 'num' },
+  { k: 'height', t: 'الطول (سم)', type: 'num' },
+  { k: 'weight', t: 'الوزن (كجم)', type: 'num' },
+  { k: 'work', t: 'طبيعة عملك', type: 'one', opts: ['مكتبي', 'حركي', 'مختلط'] },
+  { k: 'work_days', t: 'كم يوم دوام بالأسبوع؟', type: 'one', opts: ['4', '5', '6'] },
+  { k: 'work_hours', t: 'كم ساعة باليوم؟', type: 'one', opts: ['أقل من 6', '6-8', '9-10', 'أكثر من 10'] },
+  { k: 'sports', t: 'رياضات تمارسها بشكل دوري', type: 'many', opts: ['بادل أو تنس', 'كرة قدم', 'كرة طائرة', 'سباحة', 'جري أو دراجة', 'رياضات قتالية', 'لا يوجد'] },
+  { k: 'injury', t: 'هل عندك إصابة أو ألم مزمن؟', type: 'one', opts: ['لا', 'نعم'], req: true },
+  { k: 'injury_details', t: 'اذكر تفاصيل الإصابة', type: 'text', when: (v) => v.injury === 'نعم' },
+  { k: 'notes', t: 'أي شيء تحب أعرفه', type: 'text' }
+];
+const CODE_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';
+function newCode() { let s = ''; for (let i = 0; i < 8; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]; return s; }
+function renderJoin(err) {
+  hdr({ title: 'HAJIME' });
+  const v = A.join || (A.join = {});
+  const field = (q) => {
+    if (q.when && !q.when(v)) return '';
+    if (q.type === 'one' || q.type === 'many') {
+      const sel = q.type === 'many' ? (v[q.k] || []) : v[q.k];
+      return `<div class="lbl" dir="rtl" style="text-align:right">${esc(q.t)}</div><div class="bands">${q.opts.map((o) =>
+        `<button class="${q.type === 'many' ? (sel.includes(o) ? 'on' : '') : (sel === o ? 'on' : '')}" data-a="join.pick" data-k="${q.k}" data-m="${q.type}" data-v="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
+    }
+    return `<div class="lbl" dir="rtl" style="text-align:right">${esc(q.t)}</div>
+      ${q.type === 'text' ? `<textarea class="ta" data-in="join.f" data-k="${q.k}" dir="rtl">${esc(v[q.k] || '')}</textarea>`
+        : `<input class="in" inputmode="numeric" data-in="join.f" data-k="${q.k}" value="${esc(v[q.k] || '')}">`}`;
+  };
+  main(`<div class="logo">HAJIME</div>
+    <p class="center muted" dir="rtl">عبّي بياناتك وينفتح لك حسابك مباشرة</p>
+    <div class="lbl" dir="rtl" style="text-align:right">الاسم</div><input class="in" data-in="join.f" data-k="name" value="${esc(v.name || '')}" dir="rtl">
+    <div class="lbl" dir="rtl" style="text-align:right">البريد الإلكتروني</div><input class="in" type="email" inputmode="email" data-in="join.f" data-k="email" value="${esc(v.email || '')}">
+    ${JOIN_Q.map(field).join('')}
+    <label class="row" style="margin:14px 2px" dir="rtl"><input type="checkbox" id="jnTerms" ${v.terms ? 'checked' : ''} style="width:18px;height:18px" data-ch="join.terms">
+      <span class="muted">أوافق على شروط الاشتراك</span></label>
+    <div class="err" id="jnErr">${esc(err || '')}</div>
+    <button class="btn" data-a="join.go">إنشاء الحساب</button>
+    <button class="btn ghost" data-a="join.login">عندي حساب</button>`);
+}
+INP['join.f'] = (el) => { A.join[el.dataset.k] = el.value; };
+CHG['join.terms'] = (el) => { A.join.terms = el.checked; };
+ACT['join.pick'] = (ds) => {
+  const v = A.join;
+  if (ds.m === 'many') {
+    const cur = v[ds.k] || [];
+    v[ds.k] = cur.includes(ds.v) ? cur.filter((x) => x !== ds.v) : cur.concat([ds.v]);
+  } else v[ds.k] = ds.v;
+  renderJoin();
+};
+ACT['join.login'] = () => { history.replaceState({}, '', location.pathname); renderLogin(); };
+ACT['join.go'] = async (ds, el) => {
+  const v = A.join;
+  const email = String(v.email || '').trim().toLowerCase();
+  if (!v.name || !v.name.trim()) return renderJoin('اكتب اسمك');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return renderJoin('اكتب بريدًا صحيحًا');
+  if (!v.injury) return renderJoin('جاوب على سؤال الإصابات');
+  if (!v.terms) return renderJoin('لازم توافق على الشروط');
+  el.disabled = true;
+  const code = newCode();
+  try {
+    const sess = await SB.signUp(email, code);
+    const intake = {};
+    JOIN_Q.forEach((q) => { if (v[q.k] !== undefined) intake[q.t] = v[q.k]; });
+    await SB.upd('profiles', { id: sess.user.id }, { name: v.name.trim(), email, intake, access_code: code, status: 'new' });
+    A.join = null;
+    hdr({ title: 'HAJIME' });
+    main(`<div class="logo">HAJIME</div>
+      <div class="ocard center"><div class="otitle">تم إنشاء حسابك</div>
+        <p class="muted" dir="rtl">احفظ بياناتك، وبتحتاجها لتسجيل الدخول</p>
+        <div class="sumline" style="width:100%"><span class="muted">البريد</span><span>${esc(email)}</span></div>
+        <div class="sumline" style="width:100%"><span class="muted">الرمز</span><span style="font-size:20px;font-weight:900">${esc(code)}</span></div>
+      </div>
+      <button class="btn" data-a="join.done">ادخل للتطبيق</button>`);
+  } catch (err) {
+    renderJoin(err.message && /already|registered/i.test(err.message) ? 'هذا البريد مسجّل من قبل' : err.message);
+  }
+};
+ACT['join.done'] = () => { history.replaceState({}, '', location.pathname); boot(); };
 
 /* ======================================================================
    BOOT
    ====================================================================== */
 async function boot() {
+  if (/(\?|&)join\b/.test(location.search)) { A.join = A.join || {}; return renderJoin(); }
   if (!SB.session) return renderLogin();
   main('<div class="spin"></div>');
   try {
