@@ -178,6 +178,11 @@ button:disabled{opacity:.35;cursor:default}
 .lblrow{display:flex;align-items:center;gap:8px;margin:14px 0 6px}
 .lblrow .lbl{margin:0}
 .target{font-size:11px;color:#93c5fd;font-weight:800;margin-left:auto}
+.posebox{border-top:1px solid var(--line);padding:12px 0}
+.photogrid{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px}
+.photocol{flex:none;width:150px}
+.photocol img{width:150px;height:200px;object-fit:cover;border-radius:10px;background:var(--card2);display:block}
+.photocol .ph{width:150px;height:200px;border-radius:10px;background:var(--card2);display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:12px}
 .note-y{background:rgba(234,179,8,.14);border:1px solid rgba(234,179,8,.45);border-radius:12px;padding:10px 12px;white-space:pre-wrap;text-align:left;width:100%}
 .note-y b{display:block;font-size:11px;letter-spacing:.1em;color:#fcd34d;margin-bottom:3px}
 .next-day{box-shadow:0 0 0 2px var(--blue) inset}
@@ -336,6 +341,22 @@ const SB = {
     Object.keys(eq).forEach((k) => p.set(k, 'eq.' + eq[k]));
     return SB.call('/rest/v1/' + table + '?' + p.toString(), { method: 'DELETE' });
   },
+  async upload(path, file) {
+    await SB.ready();
+    const res = await fetch(CONFIG.SUPABASE_URL + '/storage/v1/object/photos/' + path + '?upsert=true', {
+      method: 'POST',
+      headers: { apikey: CONFIG.SUPABASE_KEY, Authorization: 'Bearer ' + SB.session.access_token, 'Content-Type': file.type || 'image/jpeg', 'x-upsert': 'true' },
+      body: file
+    });
+    if (!res.ok) throw new AppError('server', 'Upload failed (' + res.status + ')');
+    return path;
+  },
+  async signed(path) {
+    await SB.ready();
+    const r = await SB.call('/storage/v1/object/sign/photos/' + path, { method: 'POST', body: { expiresIn: 3600 } });
+    const u = r.signedURL || r.signedUrl || '';
+    return u.startsWith('http') ? u : CONFIG.SUPABASE_URL + '/storage/v1' + (u.startsWith('/') ? '' : '/') + u;
+  },
   async upd(table, eq, patch) {
     await SB.ready();
     const p = new URLSearchParams();
@@ -394,6 +415,7 @@ async function back() {
     A.screen = 'trainee';
     return renderTrainee();
   }
+  if (A.screen === 'photos' || A.screen === 'intake') { A.screen = 'trainee'; A.ph = null; return renderTrainee(); }
   if (A.screen === 'lib') { A.screen = 'home'; A.lib = null; return renderHome(); }
   if (A.screen === 'trainee') { A.tr = null; A.trData = null; A.screen = 'home'; return renderHome(); }
 }
@@ -599,6 +621,10 @@ function renderTrainee() {
     <div class="box"><div class="lbl" style="margin-top:0">My notes</div>
       <textarea class="ta" data-in="tr.note" placeholder="Private notes about this trainee…">${esc(p.coach_note || '')}</textarea>
       <button class="btn sm ghost" data-a="tr.noteSave">SAVE NOTES</button></div>
+
+    <div class="box"><div class="lbl" style="margin-top:0">Photos</div>
+      <button class="btn sm ghost" data-a="tr.intake">INTAKE FORM &amp; PHOTOS</button>
+      <button class="btn sm ghost" data-a="ph.open">COMPARE WEEKLY PHOTOS</button></div>
 
     <div class="box"><div class="lbl" style="margin-top:0">Program</div>
       <button class="btn sm" data-a="meso.new">+ NEW MESOCYCLE</button>
@@ -1222,8 +1248,9 @@ async function loadMe() {
     SB.sel('sets_log', { filters: inFilter }),
     SB.sel('checkins', { filters: [['day', 'gte.' + addDays(weekStart(), -7)]], order: 'day.desc' })
   ]);
+  const weeks2 = await SB.sel('weeks', { eq: { trainee_id: A.me.id }, order: 'week_start.desc', limit: 8 });
   await loadEx();
-  const D = { mesos: last, plan, entries: {}, sets: {}, checkins, weeks: [] };
+  const D = { mesos: last, plan, entries: {}, sets: {}, checkins, weeks: [], weeks2 };
   entries.forEach((e) => { D.entries[ek(e.meso_id, e.week, e.slot)] = e; });
   sets.forEach((x) => { D.sets[sk2(x.meso_id, x.week, x.slot, x.n)] = x; });
   last.forEach((m) => { for (let w = 1; w <= m.weeks; w++) D.weeks.push({ meso: m, w, g: m.start_week + w - 1, start: mesoWeekStart(m, w) }); });
@@ -1768,6 +1795,41 @@ ACT['me.program'] = () => {
     <div style="overflow-x:auto"><table class="tbl"><tr><th>EXERCISE</th>${cols.map((x) => `<th>W${x.g}</th>`).join('')}</tr>${body}</table></div>`);
 };
 
+/* ---------- the weekly photos ---------- */
+const POSES = [
+  { k: 'photo_front', t: 'دبل بايسبس أمامي', d: 'وقف مواجه الكاميرا، ارفع ذراعيك للجانب واثنِ المرفقين، وشد البايسبس والصدر، والقدمان بعرض الكتفين.' },
+  { k: 'photo_back', t: 'دبل بايسبس خلفي', d: 'أعطِ ظهرك للكاميرا بنفس الوضعية، ارفع ذراعيك واثنِ المرفقين، وشد الظهر والبايسبس.' }
+];
+function isLastDayOfWeek(d) { return parseYmd(d).getDay() === 6; }
+function weekRow(ws) { return (T.D.weeks2 || []).find((w) => w.week_start === ws) || null; }
+function photosHtml(day) {
+  if (!isLastDayOfWeek(day)) return '';
+  const ws = weekStart(day);
+  const row = weekRow(ws) || {};
+  return `<div class="box" dir="rtl" style="text-align:right"><div class="lbl" style="margin-top:0">صور نهاية الأسبوع</div>
+    ${POSES.map((p) => `<div class="posebox">
+      <div class="orow"><b>${esc(p.t)}</b>${row[p.k] ? '<span class="chip green">تم الرفع</span>' : '<span class="chip amber">مطلوبة</span>'}</div>
+      <p class="muted" style="margin:6px 0">${esc(p.d)}</p>
+      <label class="btn ghost" style="margin:0">${row[p.k] ? 'استبدال الصورة' : 'رفع الصورة'}
+        <input type="file" accept="image/*" style="display:none" data-ch="me.photo" data-k="${p.k}" data-ws="${ws}"></label></div>`).join('')}
+    <p class="muted">تُطلب آخر يوم بالأسبوع فقط، وما يشوفها غير مدربك.</p></div>`;
+}
+CHG['me.photo'] = async (el) => {
+  const file = el.files && el.files[0];
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024) return toast('الصورة كبيرة، جرّب وحدة أصغر');
+  toast('جاري الرفع…');
+  const ws = el.dataset.ws, key = el.dataset.k;
+  const path = A.me.id + '/' + ws + '-' + (key === 'photo_front' ? 'front' : 'back') + '.jpg';
+  try {
+    await SB.upload(path, file);
+    const rows = await SB.ins('weeks', [Object.assign({ trainee_id: A.me.id, week_start: ws, updated_at: new Date().toISOString() }, { [key]: path })], 'trainee_id,week_start');
+    T.D.weeks2 = (T.D.weeks2 || []).filter((w) => w.week_start !== ws).concat(rows[0] ? [rows[0]] : []);
+    toast('تم الرفع');
+    renderCheck();
+  } catch (err) { toast(err.message); }
+};
+
 /* ---------- daily check-in ---------- */
 const SLEEP = ['4-5', '5-6', '7-8', '9+'];
 const STEPS = ['2k-3k', '4k-5k', '6k-8k', '9k-12k', 'other'];
@@ -1823,6 +1885,7 @@ function renderCheck() {
       `<button class="${c.activity_type === v ? 'on' : ''}" data-a="me.band" data-f="activity_type" data-v="${esc(v)}">${esc(v)}</button>`).join('')}</div>` : ''}
     <div class="lblrow"><span class="lbl">ANYTHING UNUSUAL</span></div>
     <textarea class="ta" id="ciNote" maxlength="500" data-in="me.draftNote">${esc(c.note || '')}</textarea>
+    ${photosHtml(day)}
     <button class="btn" data-a="me.checkSave">SAVE</button>`);
 }
 function draft(patch) {
@@ -1899,6 +1962,63 @@ ACT['me.checkSave'] = () => {
 };
 
 /* ======================================================================
+   COACH: comparing the weekly photos
+   ====================================================================== */
+ACT['tr.intake'] = () => {
+  A.screen = 'intake';
+  const p = A.tr;
+  const intake = p.intake || {};
+  const photos = p.photos || {};
+  hdr({ title: 'INTAKE', back: true });
+  const rows = Object.keys(intake).map((k) => {
+    const v = intake[k];
+    if (v && typeof v === 'object') {
+      const list = Object.keys(v).filter((x) => v[x]);
+      return list.length ? `<div class="sumline"><span>${esc(k)}</span><span>${esc(list.map((x) => x + ': ' + v[x]).join(' · '))}</span></div>` : '';
+    }
+    return v ? `<div class="sumline"><span>${esc(k)}</span><span>${esc(v)}</span></div>` : '';
+  }).join('');
+  main(`<div class="box" dir="rtl" style="text-align:right"><div class="lbl" style="margin-top:0">${esc(p.name || '')}</div>
+      ${rows || '<p class="muted">No questionnaire on file.</p>'}</div>
+    <div class="lbl">ASSESSMENT PHOTOS</div>
+    <div class="photogrid">${INTAKE_PHOTOS.map((x) => `<div class="photocol">
+      ${photos[x.k] ? `<img data-ph="${esc(photos[x.k])}" alt="">` : '<div class="ph">—</div>'}
+      <div class="sub center" dir="rtl">${esc(x.t)}</div></div>`).join('')}</div>`);
+  A.phUrls = A.phUrls || {};
+  document.querySelectorAll('img[data-ph]').forEach(async (img) => {
+    const path = img.dataset.ph;
+    try { img.src = A.phUrls[path] || (A.phUrls[path] = await SB.signed(path)); } catch (_) {}
+  });
+};
+ACT['ph.open'] = async () => {
+  main('<div class="spin"></div>');
+  try {
+    const rows = await SB.sel('weeks', { eq: { trainee_id: A.tr.id }, order: 'week_start.asc' });
+    A.ph = { rows: rows.filter((r) => r.photo_front || r.photo_back), hidden: {}, urls: {} };
+    A.screen = 'photos';
+    renderPhotos();
+  } catch (err) { toast(err.message); renderTrainee(); }
+};
+function renderPhotos() {
+  hdr({ title: 'PHOTOS', back: true });
+  const P = A.ph;
+  if (!P.rows.length) return main('<div class="empty">No weekly photos yet.</div>');
+  const shown = P.rows.filter((r) => !P.hidden[r.week_start]);
+  const chips = P.rows.map((r) => `<button class="pill ${P.hidden[r.week_start] ? '' : 'blue'}" data-a="ph.toggle" data-w="${r.week_start}">${esc(r.week_start.slice(5))}</button>`).join('');
+  const row = (key, label) => `<div class="lbl">${label}</div><div class="photogrid">${shown.map((r) => `<div class="photocol">
+      ${r[key] ? `<img data-ph="${esc(r[key])}" alt="">` : '<div class="ph">—</div>'}
+      <div class="sub center">${esc(r.week_start.slice(5))}</div></div>`).join('')}</div>`;
+  main(`<p class="muted">Pick the weeks you want side by side.</p>
+    <div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">${chips}</div>
+    ${row('photo_front', 'FRONT DOUBLE BICEPS')}${row('photo_back', 'BACK DOUBLE BICEPS')}`);
+  document.querySelectorAll('img[data-ph]').forEach(async (img) => {
+    const path = img.dataset.ph;
+    try { img.src = A.ph.urls[path] || (A.ph.urls[path] = await SB.signed(path)); } catch (_) {}
+  });
+}
+ACT['ph.toggle'] = (ds) => { A.ph.hidden[ds.w] = !A.ph.hidden[ds.w]; renderPhotos(); };
+
+/* ======================================================================
    THE PACKAGE: shown inside the app, on the sign-in page and to the trainee
    ====================================================================== */
 const PKG_FEATURES = [
@@ -1947,89 +2067,178 @@ ACT['pkg.close'] = () => {
 };
 ACT['pkg.join'] = () => {
   if (!/(\?|&)join\b/.test(location.search)) history.replaceState({}, '', location.pathname + '?join');
-  A.join = A.join || {};
+  A.join = A.join || { step: 0, v: {}, files: {}, err: '' };
   renderJoin();
 };
 
 /* ======================================================================
    JOIN: the questionnaire that creates the account
    ====================================================================== */
-const JOIN_Q = [
-  { k: 'age', t: 'العمر', type: 'num' },
-  { k: 'height', t: 'الطول (سم)', type: 'num' },
-  { k: 'weight', t: 'الوزن (كجم)', type: 'num' },
-  { k: 'work', t: 'طبيعة عملك', type: 'one', opts: ['مكتبي', 'حركي', 'مختلط'] },
-  { k: 'work_days', t: 'كم يوم دوام بالأسبوع؟', type: 'one', opts: ['4', '5', '6'] },
-  { k: 'work_hours', t: 'كم ساعة باليوم؟', type: 'one', opts: ['أقل من 6', '6-8', '9-10', 'أكثر من 10'] },
-  { k: 'sports', t: 'رياضات تمارسها بشكل دوري', type: 'many', opts: ['بادل أو تنس', 'كرة قدم', 'كرة طائرة', 'سباحة', 'جري أو دراجة', 'رياضات قتالية', 'لا يوجد'] },
-  { k: 'injury', t: 'هل عندك إصابة أو ألم مزمن؟', type: 'one', opts: ['لا', 'نعم'], req: true },
-  { k: 'injury_details', t: 'اذكر تفاصيل الإصابة', type: 'text', when: (v) => v.injury === 'نعم' },
-  { k: 'notes', t: 'أي شيء تحب أعرفه', type: 'text' }
+const INTAKE = {
+  work_type: { t: 'طبيعة عملك', o: ['مكتبي (جالس أغلب اليوم)', 'حركي (واقف أو متنقل أغلب اليوم)', 'مختلط'] },
+  work_days: { t: 'كم يوم تداوم بالأسبوع؟', o: ['0', '4', '5', '6', 'غير ثابت'] },
+  work_hours: { t: 'كم ساعة تداوم باليوم', o: ['4-6', '6-8', '8-10', '10-12'] },
+  steps: { t: 'متوسط خطواتك', o: ['3,000', '5,000', '7,000', '+8,000', 'ما احسب'] },
+  sports_yes: { t: 'تمارس رياضات ثانية بشكل مستمر غير الحديد؟', o: ['نعم', 'لا'] },
+  injury_yes: { t: 'عندك إصابة سابقة أو حالية، أو ألم يمنعك من حركة معينة؟', o: ['نعم', 'لا'] }
+};
+const SPORTS = ['بادل أو تنس', 'كرة قدم', 'كرة طائرة', 'سباحة', 'جري، دراجة', 'رياضات قتالية'];
+const SPORT_DAYS = ['يوم', 'يومين', '3 ايام', '4 ايام او اكثر'];
+const INTAKE_PHOTOS = [
+  { k: 'front_db', t: 'دبل بايسبس أمامي' },
+  { k: 'back_db', t: 'دبل بايسبس خلفي' },
+  { k: 'stand_front', t: 'وقوف أمامي' },
+  { k: 'stand_side', t: 'وقوف جانبي' }
 ];
+const POSE_VIDEO = 'https://vt.tiktok.com/ZSqckRymB/';
 const CODE_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';
 function newCode() { let s = ''; for (let i = 0; i < 8; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]; return s; }
-function renderJoin(err) {
-  hdr({ title: 'HAJIME' });
-  const v = A.join || (A.join = {});
-  const field = (q) => {
-    if (q.when && !q.when(v)) return '';
-    if (q.type === 'one' || q.type === 'many') {
-      const sel = q.type === 'many' ? (v[q.k] || []) : v[q.k];
-      return `<div class="lbl" dir="rtl" style="text-align:right">${esc(q.t)}</div><div class="bands">${q.opts.map((o) =>
-        `<button class="${q.type === 'many' ? (sel.includes(o) ? 'on' : '') : (sel === o ? 'on' : '')}" data-a="join.pick" data-k="${q.k}" data-m="${q.type}" data-v="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
-    }
-    return `<div class="lbl" dir="rtl" style="text-align:right">${esc(q.t)}</div>
-      ${q.type === 'text' ? `<textarea class="ta" data-in="join.f" data-k="${q.k}" dir="rtl">${esc(v[q.k] || '')}</textarea>`
-        : `<input class="in" inputmode="numeric" data-in="join.f" data-k="${q.k}" value="${esc(v[q.k] || '')}">`}`;
-  };
-  main(`<div class="logo">HAJIME</div>
-    <p class="center muted" dir="rtl">عبّي بياناتك وينفتح لك حسابك مباشرة</p>
-    <div class="lbl" dir="rtl" style="text-align:right">الاسم</div><input class="in" data-in="join.f" data-k="name" value="${esc(v.name || '')}" dir="rtl">
-    <div class="lbl" dir="rtl" style="text-align:right">البريد الإلكتروني</div><input class="in" type="email" inputmode="email" data-in="join.f" data-k="email" value="${esc(v.email || '')}">
-    ${JOIN_Q.map(field).join('')}
-    <label class="row" style="margin:14px 2px" dir="rtl"><input type="checkbox" id="jnTerms" ${v.terms ? 'checked' : ''} style="width:18px;height:18px" data-ch="join.terms">
-      <span class="muted">أوافق على شروط الاشتراك</span></label>
-    <div class="err" id="jnErr">${esc(err || '')}</div>
-    <button class="btn" data-a="join.go">إنشاء الحساب</button>
-    <button class="btn ghost" data-a="pkg.open">الباقة والشروط</button>
-    <button class="btn ghost" data-a="join.login">عندي حساب</button>`);
+
+const JOIN_STEPS = ['intro', 'you', 'work', 'activity', 'sports', 'injury', 'injury_details', 'photos', 'free', 'terms'];
+function joinSkip(id, v) {
+  if (id === 'sports') return v.sports_yes !== 'نعم';
+  if (id === 'injury_details') return v.injury_yes !== 'نعم';
+  return false;
 }
-INP['join.f'] = (el) => { A.join[el.dataset.k] = el.value; };
-CHG['join.terms'] = (el) => { A.join.terms = el.checked; };
-ACT['join.pick'] = (ds) => {
-  const v = A.join;
-  if (ds.m === 'many') {
-    const cur = v[ds.k] || [];
-    v[ds.k] = cur.includes(ds.v) ? cur.filter((x) => x !== ds.v) : cur.concat([ds.v]);
-  } else v[ds.k] = ds.v;
+function joinGo(dir) {
+  const J = A.join;
+  let i = J.step;
+  do { i += dir; } while (i > 0 && i < JOIN_STEPS.length - 1 && joinSkip(JOIN_STEPS[i], J.v));
+  J.step = Math.max(0, Math.min(JOIN_STEPS.length - 1, i));
+  J.err = '';
+  renderJoin();
+}
+function joinValid(id, v) {
+  if (id === 'intro') return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v.email || '').trim()) ? '' : 'اكتب بريدًا صحيحًا';
+  if (id === 'you') {
+    if (!String(v.name || '').trim()) return 'اكتب اسمك الثلاثي';
+    if (!v.age || !v.height || !v.weight) return 'عبّي العمر والطول والوزن';
+    return '';
+  }
+  if (id === 'work') return v.work_type && v.work_days && v.work_hours ? '' : 'جاوب على كل الأسئلة';
+  if (id === 'activity') return v.steps && v.sports_yes ? '' : 'جاوب على كل الأسئلة';
+  if (id === 'injury') return v.injury_yes ? '' : 'جاوب على السؤال';
+  if (id === 'injury_details') return String(v.injury_details || '').trim() ? '' : 'وضّح لي الإصابة';
+  if (id === 'photos') return INTAKE_PHOTOS.every((p) => A.join.files[p.k]) ? '' : 'الصور الأربع مطلوبة';
+  if (id === 'terms') return v.terms ? '' : 'لازم توافق على الشروط';
+  return '';
+}
+ACT['join.next'] = () => {
+  const J = A.join, id = JOIN_STEPS[J.step];
+  const err = joinValid(id, J.v);
+  if (err) { J.err = err; return renderJoin(); }
+  joinGo(1);
+};
+ACT['join.back'] = () => joinGo(-1);
+
+function renderJoin() {
+  const J = A.join || (A.join = { step: 0, v: {}, files: {}, err: '' });
+  const v = J.v, id = JOIN_STEPS[J.step];
+  hdr({ title: 'HAJIME' });
+  const pick = (key, q) => `<div class="lbl">${esc(q.t)}</div><div class="bands">${q.o.map((o) =>
+    `<button class="${v[key] === o ? 'on' : ''}" data-a="join.pick" data-k="${key}" data-v="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
+  const num = (key, label) => `<div class="lbl">${esc(label)}</div><input class="in" inputmode="numeric" data-in="join.f" data-k="${key}" value="${esc(v[key] || '')}">`;
+  let body = '';
+  if (id === 'intro') {
+    body = `<div class="logo">HAJIME</div><div class="otitle center">استبيان بداية الاشتراك</div>
+      <p class="muted">قبل ما تبدأ، تكفّل دقيقتين. آخر خطوة بالاستبيان صور لجسمك — بدونها ما أقدر أشوف نقاط ضعفك ولا أبني لك جدول دقيق. لو الصور مو جاهزة عندك الحين أو الوقت مو مناسب للتصوير، جهّزها أول وارجع لي بعدين، عشان ما تعبّي كل شي وترجع تعيده من جديد.</p>
+      <div class="lbl">بريدك الإلكتروني</div><input class="in" type="email" inputmode="email" dir="ltr" data-in="join.f" data-k="email" value="${esc(v.email || '')}">`;
+  } else if (id === 'you') {
+    body = `<div class="otitle">بياناتك</div>
+      <div class="lbl">اسمك الثلاثي</div><input class="in" data-in="join.f" data-k="name" value="${esc(v.name || '')}">
+      ${num('age', 'عمرك')}${num('height', 'الطول بالسنتيمتر')}${num('weight', 'وزنك الحالي بالكيلو')}`;
+  } else if (id === 'work') {
+    body = `<div class="otitle">عملك</div>${pick('work_type', INTAKE.work_type)}${pick('work_days', INTAKE.work_days)}${pick('work_hours', INTAKE.work_hours)}`;
+  } else if (id === 'activity') {
+    body = `<div class="otitle">نشاطك</div>${pick('steps', INTAKE.steps)}${pick('sports_yes', INTAKE.sports_yes)}`;
+  } else if (id === 'sports') {
+    body = `<div class="otitle">الرياضات</div><div class="lbl">كم يوم بالأسبوع تلعب كل رياضة؟</div>
+      ${SPORTS.map((sp) => `<div class="box" style="padding:10px"><b>${esc(sp)}</b>
+        <div class="bands" style="margin-top:8px">${SPORT_DAYS.map((d) =>
+          `<button class="${(v.sports || {})[sp] === d ? 'on' : ''}" data-a="join.sport" data-s="${esc(sp)}" data-v="${esc(d)}">${esc(d)}</button>`).join('')}</div></div>`).join('')}`;
+  } else if (id === 'injury') {
+    body = `<div class="otitle">الاصابات</div>${pick('injury_yes', INTAKE.injury_yes)}`;
+  } else if (id === 'injury_details') {
+    body = `<div class="otitle">تفاصيل الاصابة</div>
+      <div class="lbl">وضّح لي الإصابة ومكانها ومتى صارت، وأي حركة تزعجك فيها</div>
+      <textarea class="ta" data-in="join.f" data-k="injury_details">${esc(v.injury_details || '')}</textarea>`;
+  } else if (id === 'photos') {
+    body = `<div class="otitle">الصور</div>
+      <p class="muted">بدون تيشيرت، بإضاءة واضحة، والجسم كامل بالصورة. تحت كل وضعية صورة توضح المطلوب.</p>
+      <a class="btn ghost" style="text-decoration:none;text-align:center" href="${POSE_VIDEO}" target="_blank" rel="noopener">اضغط هنا لمقطع شرح البوزنق</a>
+      ${INTAKE_PHOTOS.map((p) => `<div class="posebox"><div class="orow"><b>${esc(p.t)}</b>
+        ${J.files[p.k] ? '<span class="chip green">تم الاختيار</span>' : '<span class="chip amber">مطلوبة</span>'}</div>
+        <label class="btn ghost" style="margin:8px 0 0">${J.files[p.k] ? 'تغيير الصورة' : 'اختر الصورة'}
+          <input type="file" accept="image/*" style="display:none" data-ch="join.photo" data-k="${p.k}"></label></div>`).join('')}`;
+  } else if (id === 'free') {
+    body = `<div class="otitle">مساحة كتابة</div><div class="lbl">فيه شي تبي أعرفه عنك أو عن هدفك؟</div>
+      <textarea class="ta" data-in="join.f" data-k="notes">${esc(v.notes || '')}</textarea>`;
+  } else {
+    body = `<div class="otitle">الشروط</div>
+      ${PKG_TERMS.map((t) => `<div class="sumline" style="padding:6px 0"><span>• ${esc(t)}</span></div>`).join('')}
+      <label class="row" style="margin:14px 2px"><input type="checkbox" ${v.terms ? 'checked' : ''} style="width:18px;height:18px" data-ch="join.terms">
+        <span>قرأت الشروط بالصفحة وموافق عليها</span></label>`;
+  }
+  const last = id === 'terms';
+  main(`<div dir="rtl" style="text-align:right">
+    <div class="obar" style="margin-bottom:14px"><div style="width:${Math.round((J.step + 1) / JOIN_STEPS.length * 100)}%"></div></div>
+    ${body}
+    <div class="err">${esc(J.err || '')}</div>
+    <button class="btn" data-a="${last ? 'join.go' : 'join.next'}">${last ? 'إنشاء الحساب' : 'التالي'}</button>
+    ${J.step ? '<button class="btn ghost" data-a="join.back">رجوع</button>' : '<button class="btn ghost" data-a="pkg.open">الباقة والشروط</button>'}
+    ${J.step ? '' : '<button class="btn ghost" data-a="join.login">عندي حساب</button>'}</div>`);
+}
+INP['join.f'] = (el) => { A.join.v[el.dataset.k] = el.value; };
+CHG['join.terms'] = (el) => { A.join.v.terms = el.checked; };
+CHG['join.photo'] = (el) => {
+  const f = el.files && el.files[0];
+  if (!f) return;
+  if (f.size > 8 * 1024 * 1024) return toast('الصورة كبيرة، جرّب وحدة أصغر');
+  A.join.files[el.dataset.k] = f;
   renderJoin();
 };
-ACT['join.login'] = () => { history.replaceState({}, '', location.pathname); renderLogin(); };
+ACT['join.pick'] = (ds) => { A.join.v[ds.k] = ds.v; A.join.err = ''; renderJoin(); };
+ACT['join.sport'] = (ds) => {
+  const sp = A.join.v.sports || (A.join.v.sports = {});
+  sp[ds.s] = sp[ds.s] === ds.v ? '' : ds.v;
+  renderJoin();
+};
+ACT['join.login'] = () => { history.replaceState({}, '', location.pathname); A.join = null; renderLogin(); };
 ACT['join.go'] = async (ds, el) => {
-  const v = A.join;
-  const email = String(v.email || '').trim().toLowerCase();
-  if (!v.name || !v.name.trim()) return renderJoin('اكتب اسمك');
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return renderJoin('اكتب بريدًا صحيحًا');
-  if (!v.injury) return renderJoin('جاوب على سؤال الإصابات');
-  if (!v.terms) return renderJoin('لازم توافق على الشروط');
+  const J = A.join, v = J.v;
+  const err = joinValid('terms', v);
+  if (err) { J.err = err; return renderJoin(); }
   el.disabled = true;
+  const email = String(v.email || '').trim().toLowerCase();
   const code = newCode();
   try {
     const sess = await SB.signUp(email, code);
-    const intake = {};
-    JOIN_Q.forEach((q) => { if (v[q.k] !== undefined) intake[q.t] = v[q.k]; });
-    await SB.upd('profiles', { id: sess.user.id }, { name: v.name.trim(), email, intake, access_code: code, status: 'new' });
+    const photos = {};
+    for (const p of INTAKE_PHOTOS) {
+      const path = sess.user.id + '/intake-' + p.k + '.jpg';
+      await SB.upload(path, J.files[p.k]);
+      photos[p.k] = path;
+    }
+    const intake = {
+      'العمر': v.age, 'الطول': v.height, 'الوزن': v.weight,
+      [INTAKE.work_type.t]: v.work_type, [INTAKE.work_days.t]: v.work_days, [INTAKE.work_hours.t]: v.work_hours,
+      [INTAKE.steps.t]: v.steps, [INTAKE.sports_yes.t]: v.sports_yes,
+      'الرياضات': v.sports_yes === 'نعم' ? (v.sports || {}) : {},
+      [INTAKE.injury_yes.t]: v.injury_yes, 'تفاصيل الإصابة': v.injury_details || '',
+      'ملاحظاته': v.notes || ''
+    };
+    await SB.upd('profiles', { id: sess.user.id }, { name: String(v.name).trim(), email, intake, photos, access_code: code, status: 'new' });
     A.join = null;
     hdr({ title: 'HAJIME' });
-    main(`<div class="logo">HAJIME</div>
+    main(`<div dir="rtl" style="text-align:right"><div class="logo">HAJIME</div>
       <div class="ocard center"><div class="otitle">تم إنشاء حسابك</div>
-        <p class="muted" dir="rtl">احفظ بياناتك، وبتحتاجها لتسجيل الدخول</p>
-        <div class="sumline" style="width:100%"><span class="muted">البريد</span><span>${esc(email)}</span></div>
-        <div class="sumline" style="width:100%"><span class="muted">الرمز</span><span style="font-size:20px;font-weight:900">${esc(code)}</span></div>
-      </div>
-      <button class="btn" data-a="join.done">ادخل للتطبيق</button>`);
-  } catch (err) {
-    renderJoin(err.message && /already|registered/i.test(err.message) ? 'هذا البريد مسجّل من قبل' : err.message);
+        <p class="muted">احفظ بياناتك، وبتحتاجها لتسجيل الدخول</p>
+        <div class="sumline" style="width:100%"><span class="muted">البريد</span><span dir="ltr">${esc(email)}</span></div>
+        <div class="sumline" style="width:100%"><span class="muted">الرمز</span><span style="font-size:20px;font-weight:900" dir="ltr">${esc(code)}</span></div></div>
+      <button class="btn" data-a="join.done">ادخل للتطبيق</button></div>`);
+  } catch (err2) {
+    J.err = /already|registered/i.test(err2.message || '') ? 'هذا البريد مسجّل من قبل' : err2.message;
+    renderJoin();
   }
 };
 ACT['join.done'] = () => { history.replaceState({}, '', location.pathname); boot(); };
@@ -2038,7 +2247,7 @@ ACT['join.done'] = () => { history.replaceState({}, '', location.pathname); boot
    BOOT
    ====================================================================== */
 async function boot() {
-  if (/(\?|&)join\b/.test(location.search)) { A.join = A.join || {}; return renderJoin(); }
+  if (/(\?|&)join\b/.test(location.search)) { A.join = A.join || { step: 0, v: {}, files: {}, err: '' }; return renderJoin(); }
   if (!SB.session) return renderLogin();
   main('<div class="spin"></div>');
   try {
