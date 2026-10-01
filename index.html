@@ -190,6 +190,7 @@ button:disabled{opacity:.35;cursor:default}
 .tbl{width:100%;border-collapse:collapse;font-size:12px}
 .tbl th,.tbl td{border:1px solid var(--line);padding:6px 4px;text-align:center}
 .tbl th{background:var(--card2);font-size:10px;letter-spacing:.04em}
+.tbl td.c-green{color:#86efac}.tbl td.c-red{color:#fca5a5}.tbl td .sub{font-size:10px}
 .tbl td.me{text-align:left;font-weight:700}
 .logo{font-size:26px;font-weight:900;letter-spacing:2px;color:var(--blue);text-align:center;margin:40px 0 6px}
 .center{text-align:center}
@@ -415,7 +416,9 @@ async function back() {
     A.screen = 'trainee';
     return renderTrainee();
   }
-  if (A.screen === 'photos' || A.screen === 'intake') { A.screen = 'trainee'; A.ph = null; return renderTrainee(); }
+  if (A.screen === 'photos' || A.screen === 'intake' || A.screen === 'report' || A.screen === 'perf') {
+    A.screen = 'trainee'; A.ph = null; A.rep = null; A.perf = null; return renderTrainee();
+  }
   if (A.screen === 'lib') { A.screen = 'home'; A.lib = null; return renderHome(); }
   if (A.screen === 'trainee') { A.tr = null; A.trData = null; A.screen = 'home'; return renderHome(); }
 }
@@ -432,7 +435,8 @@ function renderLogin(msg) {
     <label class="row" style="margin:14px 2px"><input type="checkbox" id="liKeep" checked style="width:18px;height:18px"> <span class="muted">Keep me signed in</span></label>
     <div class="err" id="liErr">${esc(msg || '')}</div>
     <button class="btn" data-a="auth.in">SIGN IN</button>
-    <button class="btn ghost" data-a="pkg.open" dir="rtl">الباقة والاشتراك</button>`);
+    <button class="btn ghost" data-a="pkg.join" dir="rtl">مشترك جديد؟ ابدأ من هنا</button>
+    <button class="btn ghost" data-a="pkg.open" dir="rtl">الباقة والشروط</button>`);
 }
 ACT['auth.in'] = async (ds, el) => {
   const email = $('#liEmail').value.trim(), pass = $('#liPass').value;
@@ -622,6 +626,10 @@ function renderTrainee() {
       <textarea class="ta" data-in="tr.note" placeholder="Private notes about this trainee…">${esc(p.coach_note || '')}</textarea>
       <button class="btn sm ghost" data-a="tr.noteSave">SAVE NOTES</button></div>
 
+    <div class="box"><div class="lbl" style="margin-top:0">Weekly follow-up</div>
+      <button class="btn sm ghost" data-a="rep.open">WEEKLY REPORT</button>
+      <button class="btn sm ghost" data-a="perf.open">GYM PERFORMANCE</button></div>
+
     <div class="box"><div class="lbl" style="margin-top:0">Photos</div>
       <button class="btn sm ghost" data-a="tr.intake">INTAKE FORM &amp; PHOTOS</button>
       <button class="btn sm ghost" data-a="ph.open">COMPARE WEEKLY PHOTOS</button></div>
@@ -664,17 +672,26 @@ ACT['task.set'] = async (ds, el) => {
 };
 ACT['task.toggle'] = () => { A.showClosed = !A.showClosed; renderTrainee(); };
 
+function payFrom() {
+  if (A.tr.end_date && A.tr.end_date > today()) return A.tr.end_date;
+  return A.payNext ? addDays(weekStart(), 7) : today();
+}
 ACT['sub.pay'] = () => {
-  const from = A.tr.end_date && A.tr.end_date > today() ? A.tr.end_date : today();
-  openModal(`<h3>Record payment</h3><p class="muted">${A.tr.end_date && A.tr.end_date > today() ? 'Adds to the current end date (' + esc(A.tr.end_date) + ').' : 'Starts today.'}</p>
+  const running = A.tr.end_date && A.tr.end_date > today();
+  const from = payFrom();
+  openModal(`<h3>Record payment</h3><p class="muted">${running ? 'Adds to the current end date (' + esc(A.tr.end_date) + ').' : 'Pick the day it starts from.'}</p>
+    ${running ? '' : `<div class="bands" style="margin-bottom:10px">
+      <button class="${A.payNext ? '' : 'on'}" data-a="sub.from" data-v="0">FROM TODAY</button>
+      <button class="${A.payNext ? 'on' : ''}" data-a="sub.from" data-v="1">FROM NEXT SUNDAY</button></div>`}
     ${[1, 2, 3].map((n) => `<button class="btn ${n === 1 ? '' : 'ghost'}" data-a="sub.payGo" data-m="${n}">${n} MONTH${n > 1 ? 'S' : ''} · ENDS ${esc(addMonths(from, n))}</button>`).join('')}
     <button class="btn ghost" data-a="modal.no">CANCEL</button>`);
 };
+ACT['sub.from'] = (ds) => { A.payNext = ds.v === '1'; ACT['sub.pay'](); };
 ACT['sub.payGo'] = async (ds, el) => {
   el.disabled = true;
-  const from = A.tr.end_date && A.tr.end_date > today() ? A.tr.end_date : today();
+  const from = payFrom();
   const patch = { end_date: addMonths(from, +ds.m), status: A.tr.status === 'expired' || A.tr.status === 'new' ? 'active' : A.tr.status };
-  if (!A.tr.start_date) patch.start_date = today();
+  if (!A.tr.start_date) patch.start_date = from;
   try {
     await SB.upd('profiles', { id: A.tr.id }, patch);
     Object.assign(A.tr, patch);
@@ -1177,9 +1194,13 @@ function openSummary(forPublish) {
     <div class="lbl" style="margin-top:0">Weekly sets per muscle</div>
     <div class="sumgrid">${order.map((pt) => `<div class="sumrow"><span>${esc(pt)}</span><b>${perPart[pt]}</b></div>`).join('')}</div>
     <div class="lbl">Program · ${ed.weeks} weeks · ${total} sets per week</div>${days}
-    ${forPublish ? '<button class="btn" style="background:var(--green);color:#06210f" data-a="ed.publishGo">APPROVE & PUBLISH</button><button class="btn ghost" data-a="modal.no">EDIT</button>'
+    ${forPublish ? `<div class="lbl">WEEK 1 STARTS</div><div class="bands">
+         <button class="${A.startNext ? '' : 'on'}" data-a="ed.start" data-v="0">THIS WEEK · ${esc(weekStart())}</button>
+         <button class="${A.startNext ? 'on' : ''}" data-a="ed.start" data-v="1">NEXT SUNDAY · ${esc(addDays(weekStart(), 7))}</button></div>
+       <button class="btn" style="background:var(--green);color:#06210f" data-a="ed.publishGo">APPROVE &amp; PUBLISH</button><button class="btn ghost" data-a="modal.no">EDIT</button>`
                  : '<button class="btn ghost" data-a="modal.no">CLOSE</button>'}`);
 }
+ACT['ed.start'] = (ds) => { A.startNext = ds.v === '1'; openSummary(true); };
 ACT['ed.publishGo'] = async (ds, el) => {
   const ed = A.ed;
   el.disabled = true;
@@ -1187,9 +1208,10 @@ ACT['ed.publishGo'] = async (ds, el) => {
     if (ed.dirty || ed.saving) { await saveDraft(ed); }
     const pub = publishedOf(A.tr.id);
     const start = pub.reduce((a, m) => Math.max(a, m.start_week + m.weeks - 1), 0) + 1;
-    await SB.upd('mesocycles', { id: ed.id }, { status: 'published', start_week: start, published_at: new Date().toISOString() });
+    const startsOn = A.startNext ? addDays(weekStart(), 7) : weekStart();
+    await SB.upd('mesocycles', { id: ed.id }, { status: 'published', start_week: start, starts_on: startsOn, published_at: new Date().toISOString() });
     const m = A.trData.mesos.find((x) => String(x.id) === String(ed.id));
-    Object.assign(m, { status: 'published', start_week: start });
+    Object.assign(m, { status: 'published', start_week: start, starts_on: startsOn });
     const dm = (A.dash.mesos || []).find((x) => String(x.id) === String(ed.id));
     if (dm) Object.assign(dm, { status: 'published', start_week: start, weeks: ed.weeks, days: ed.days });
     else A.dash.mesos.push({ id: ed.id, trainee_id: A.tr.id, num: ed.num, weeks: ed.weeks, days: ed.days, status: 'published', start_week: start });
@@ -1258,7 +1280,7 @@ async function loadMe() {
   T.queue.forEach((op) => applyOp(op));
   return D;
 }
-function mesoWeekStart(m, w) { return addDays(weekStart(String(m.published_at || today()).slice(0, 10)), (w - 1) * 7); }
+function mesoWeekStart(m, w) { return addDays(m.starts_on || weekStart(String(m.published_at || today()).slice(0, 10)), (w - 1) * 7); }
 function currentWeekIndex() {
   const ws = weekStart();
   let idx = -1;
@@ -1401,6 +1423,7 @@ async function startMe() {
   main('<div class="spin"></div>');
   T.queue = LS.get(qKey(), []) || [];
   await loadMe();
+  closePastWeeks();
   T.ui.wi = currentWeekIndex();
   if (!T.ui.tab) T.ui.tab = 'check';
   if (!T.listen) {
@@ -1417,6 +1440,21 @@ function tabsHtml() {
 }
 ACT['me.tabCheck'] = () => { T.ui.tab = 'check'; T.ui.screen = 'check'; T.ui.day0 = T.ui.day0 || today(); renderCheck(); };
 ACT['me.tabWork'] = () => { T.ui.tab = 'work'; T.ui.wi = currentWeekIndex(); T.ui.screen = 'week'; renderWeek(); };
+function closePastWeeks() {
+  const limit = addDays(weekStart(), -1);        // a day of grace after the week ends
+  T.D.weeks.forEach((wk) => {
+    if (addDays(wk.start, 7) > limit) return;    // the week has not closed yet
+    wk.meso.days.forEach((d) => {
+      dayItems(wk.meso, wk.w, d.id).forEach((it) => {
+        const e = entryOf(wk.meso.id, wk.w, it.slot);
+        if (e && e.status) return;
+        if (exStatus(wk.meso, wk.w, it) !== 'none') return;
+        push('entries', { meso_id: wk.meso.id, week: wk.w, day_id: d.id, slot: it.slot, ex_id: it.ex,
+                          status: 'skipday', reason: 'لم يُنفذ خلال الأسبوع', updated_at: new Date().toISOString() }, 'trainee_id,meso_id,week,slot');
+      });
+    });
+  });
+}
 function renderT() {
   if (T.ui.screen === 'ex') return renderEx();
   if (T.ui.screen === 'day') return renderDay();
@@ -1960,6 +1998,146 @@ ACT['me.checkSave'] = () => {
     <p style="font-weight:800;margin-top:12px">${esc(msg)}</p>
     <button class="btn" data-a="me.doneGo">DONE</button>`);
 };
+
+/* ======================================================================
+   COACH: the weekly report, day by day
+   ====================================================================== */
+const DAY_NAMES = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+ACT['rep.open'] = async (ds) => {
+  main('<div class="spin"></div>');
+  const ws = (ds && ds.w) || weekStart();
+  try {
+    const [checkins, weeks] = await Promise.all([
+      SB.sel('checkins', { eq: { trainee_id: A.tr.id }, filters: [['day', 'gte.' + ws], ['day', 'lte.' + addDays(ws, 6)]], order: 'day.asc' }),
+      SB.sel('weeks', { eq: { trainee_id: A.tr.id, week_start: ws } })
+    ]);
+    A.rep = { ws, checkins, week: weeks[0] || { week_start: ws, progress: '', coach_note: '' } };
+    A.screen = 'report';
+    renderReport();
+  } catch (err) { toast(err.message); renderTrainee(); }
+};
+function renderReport() {
+  const R = A.rep;
+  hdr({ title: 'REPORT · ' + R.ws.slice(5), back: true });
+  const by = {};
+  R.checkins.forEach((c) => { by[c.day] = c; });
+  const tgt = A.tr.target_kcal;
+  const rows = DAY_NAMES.map((nm, i) => {
+    const d = addDays(R.ws, i);
+    const c = by[d] || null;
+    const tone = !c ? (d < today() ? 'red' : '') : 'green';
+    return `<tr><td class="me">${nm}<div class="sub">${esc(d.slice(5))}</div></td>
+      <td class="${tone ? 'c-' + tone : ''}">${c && c.weight != null ? esc(c.weight) : '—'}</td>
+      <td>${c && c.kcal != null ? esc(c.kcal) + (tgt ? '<div class="sub">' + (c.kcal - tgt > 0 ? '+' : '') + (c.kcal - tgt) + '</div>' : '') : '—'}</td>
+      <td>${c && c.protein_ok != null ? (c.protein_ok ? '✓' : '✗') : '—'}</td>
+      <td>${c && c.steps_band ? esc(c.steps_band) : '—'}</td>
+      <td>${c && c.sleep_band ? esc(c.sleep_band) : '—'}</td>
+      <td>${c && c.activity_band && c.activity_band !== 'none' ? esc(c.activity_band) + (c.activity_type ? '<div class="sub">' + esc(c.activity_type) + '</div>' : '') : '—'}</td></tr>`;
+  }).join('');
+  const notes = R.checkins.filter((c) => c.note).map((c) => `<div class="sumline"><span class="muted">${esc(c.day.slice(5))}</span><span>${esc(c.note)}</span></div>`).join('');
+  const ws2 = R.checkins.filter((c) => c.weight != null).map((c) => c.weight);
+  const avg = (a) => (a.length ? Math.round((a.reduce((x, y) => x + y, 0) / a.length) * 10) / 10 : null);
+  const kc = R.checkins.filter((c) => c.kcal != null).map((c) => c.kcal);
+  const logged = R.checkins.length;
+  main(`<div class="row" style="margin-bottom:10px">
+      <button class="pill" data-a="rep.open" data-w="${addDays(R.ws, -7)}">‹ PREV</button>
+      <span class="grow center muted">${esc(R.ws)} → ${esc(addDays(R.ws, 6))}</span>
+      <button class="pill" data-a="rep.open" data-w="${addDays(R.ws, 7)}" ${addDays(R.ws, 7) > weekStart() ? 'disabled' : ''}>NEXT ›</button></div>
+    <div class="row" style="gap:6px;margin-bottom:10px">
+      <span class="chip ${logged === 7 ? 'green' : logged ? 'amber' : 'red'}">LOGGED ${logged}/7</span>
+      ${avg(ws2) !== null ? `<span class="chip blue">AVG WEIGHT ${avg(ws2)}</span>` : ''}
+      ${avg(kc) !== null ? `<span class="chip blue">AVG KCAL ${avg(kc)}</span>` : ''}</div>
+    <div style="overflow-x:auto"><table class="tbl"><tr><th>DAY</th><th>KG</th><th>KCAL</th><th>PRO</th><th>STEPS</th><th>SLEEP</th><th>ACTIVITY</th></tr>${rows}</table></div>
+    ${notes ? `<div class="box" style="margin-top:12px"><div class="lbl" style="margin-top:0">HIS NOTES</div>${notes}</div>` : ''}
+    <div class="box"><div class="lbl" style="margin-top:0">YOUR READ OF THE WEEK</div>
+      <div class="bands">${[['up', 'PROGRESS'], ['flat', 'SAME'], ['down', 'BACK']].map(([v, l]) =>
+        `<button class="${R.week.progress === v ? 'on' : ''}" data-a="rep.prog" data-v="${v}">${l}</button>`).join('')}</div>
+      <textarea class="ta" style="margin-top:10px" data-in="rep.note" placeholder="Your note for this week…">${esc(R.week.coach_note || '')}</textarea>
+      <button class="btn sm" data-a="rep.save">SAVE</button></div>`);
+}
+INP['rep.note'] = (el) => { A.rep.week.coach_note = el.value; };
+ACT['rep.prog'] = (ds) => { A.rep.week.progress = A.rep.week.progress === ds.v ? '' : ds.v; renderReport(); };
+ACT['rep.save'] = async (ds, el) => {
+  el.disabled = true;
+  try {
+    await SB.ins('weeks', [{ trainee_id: A.tr.id, week_start: A.rep.ws, progress: A.rep.week.progress || '', coach_note: A.rep.week.coach_note || '', updated_at: new Date().toISOString() }], 'trainee_id,week_start');
+    toast('Saved');
+  } catch (err) { toast(err.message); }
+  el.disabled = false;
+};
+
+/* ======================================================================
+   COACH: his performance in the gym
+   ====================================================================== */
+ACT['perf.open'] = async () => {
+  main('<div class="spin"></div>');
+  try {
+    await loadEx();
+    const mesos = (A.trData.mesos || []).filter((m) => m.status === 'published');
+    if (!mesos.length) { toast('No published program yet'); return renderTrainee(); }
+    const ids = mesos.map((m) => m.id);
+    const [plan, sets, entries] = await Promise.all([
+      SB.sel('plan', { filters: [['meso_id', 'in.(' + ids.join(',') + ')']] }),
+      SB.sel('sets_log', { filters: [['meso_id', 'in.(' + ids.join(',') + ')']] }),
+      SB.sel('entries', { filters: [['meso_id', 'in.(' + ids.join(',') + ')']] })
+    ]);
+    A.perf = { meso: mesos[mesos.length - 1], plan, sets, entries, day: '' };
+    A.screen = 'perf';
+    renderPerf();
+  } catch (err) { toast(err.message); renderTrainee(); }
+};
+function perfItems(m, w, dayId) {
+  const rows = A.perf.plan.filter((p) => String(p.meso_id) === String(m.id) && p.day_id === dayId);
+  const by = {};
+  rows.forEach((r) => { if (r.from_week <= w && (!by[r.slot] || r.from_week >= by[r.slot].from_week)) by[r.slot] = r; });
+  return Object.keys(by).map((k) => by[k]).filter((r) => r.ex_id).sort((a, b) => a.pos - b.pos);
+}
+function perfSet(m, w, slot, n) { return A.perf.sets.find((x) => String(x.meso_id) === String(m.id) && x.week === w && x.slot === slot && x.n === n) || null; }
+function perfVolume(m, w, dayId) {
+  let v = 0, done = 0, total = 0;
+  perfItems(m, w, dayId).forEach((it) => {
+    for (let n = 1; n <= it.sets; n++) {
+      total++;
+      const x = perfSet(m, w, it.slot, n);
+      if (x && x.kg && x.reps) { v += parseFloat(x.kg) * parseInt(x.reps, 10); done++; }
+    }
+  });
+  return { v: Math.round(v), done, total };
+}
+function renderPerf() {
+  const P = A.perf, m = P.meso;
+  hdr({ title: 'PERFORMANCE', back: true });
+  const weeks = [];
+  for (let w = 1; w <= m.weeks; w++) weeks.push(w);
+  const totals = weeks.map((w) => m.days.reduce((a, d) => a + perfVolume(m, w, d.id).v, 0));
+  const rows = weeks.map((w, i) => {
+    const prev = totals[i - 1];
+    const pct = prev ? Math.round(((totals[i] - prev) / prev) * 1000) / 10 : null;
+    const cells = m.days.map((d) => { const x = perfVolume(m, w, d.id); return `<td>${x.v ? x.v : '—'}<div class="sub">${x.done}/${x.total}</div></td>`; }).join('');
+    return `<tr><td class="me">W${m.start_week + w - 1}</td>${cells}
+      <td><b>${totals[i] || '—'}</b></td>
+      <td class="${pct === null ? '' : pct > 0 ? 'c-green' : pct < 0 ? 'c-red' : ''}">${pct === null ? '—' : (pct > 0 ? '+' : '') + pct + '%'}</td></tr>`;
+  }).join('');
+  const dayBtns = m.days.map((d) => `<button class="pill ${P.day === d.id ? 'blue' : ''}" data-a="perf.day" data-d="${d.id}">${esc(d.name)}</button>`).join('');
+  let detail = '';
+  if (P.day) {
+    const items = perfItems(m, m.weeks, P.day);
+    detail = `<div style="overflow-x:auto;margin-top:10px"><table class="tbl"><tr><th>EXERCISE</th>${weeks.map((w) => `<th>W${m.start_week + w - 1}</th>`).join('')}</tr>
+      ${items.map((it) => {
+        const ex = exById(it.ex_id) || { name: '—' };
+        const cells = weeks.map((w) => {
+          let best = '';
+          for (let n = 1; n <= it.sets; n++) { const x = perfSet(m, w, it.slot, n); if (x && x.kg && x.reps) best = x.kg + '×' + x.reps; }
+          return `<td>${esc(best || '—')}</td>`;
+        }).join('');
+        return `<tr><td class="me">${esc(ex.name)}</td>${cells}</tr>`;
+      }).join('')}</table></div>`;
+  }
+  main(`<p class="muted">Total volume (weight × reps) per session, and how the week moved.</p>
+    <div style="overflow-x:auto"><table class="tbl"><tr><th>WEEK</th>${m.days.map((d) => `<th>${esc(d.name)}</th>`).join('')}<th>TOTAL</th><th>VS PREV</th></tr>${rows}</table></div>
+    <div class="lbl">EXERCISE BY EXERCISE</div><div class="row" style="flex-wrap:wrap;gap:6px">${dayBtns}</div>${detail}`);
+}
+ACT['perf.day'] = (ds) => { A.perf.day = A.perf.day === ds.d ? '' : ds.d; renderPerf(); };
 
 /* ======================================================================
    COACH: comparing the weekly photos
