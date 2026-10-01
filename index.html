@@ -409,7 +409,8 @@ function renderLogin(msg) {
     <div class="lbl">Password</div><input class="in" id="liPass" type="password" autocomplete="current-password">
     <label class="row" style="margin:14px 2px"><input type="checkbox" id="liKeep" checked style="width:18px;height:18px"> <span class="muted">Keep me signed in</span></label>
     <div class="err" id="liErr">${esc(msg || '')}</div>
-    <button class="btn" data-a="auth.in">SIGN IN</button>`);
+    <button class="btn" data-a="auth.in">SIGN IN</button>
+    <button class="btn ghost" data-a="pkg.open" dir="rtl">الباقة والاشتراك</button>`);
 }
 ACT['auth.in'] = async (ds, el) => {
   const email = $('#liEmail').value.trim(), pass = $('#liPass').value;
@@ -426,6 +427,9 @@ ACT['auth.in'] = async (ds, el) => {
 ACT['auth.out'] = async () => {
   if (!(await confirmBox('Sign out?', 'You will need your email and password to sign back in.', 'SIGN OUT', true))) return;
   SB.signOut();
+  A.me = null;
+  A.dash = null;
+  T.D = null;
   renderLogin();
 };
 
@@ -1350,7 +1354,8 @@ function renderLocked(kind) {
   main(`<div class="logo">HAJIME</div>
     <div class="ocard center"><div class="otitle">Subscription ended</div>
     <p class="muted">Your subscription has ended. Message me to renew and I will open it right away.</p>
-    <a class="btn" style="text-decoration:none;text-align:center" href="https://wa.me/${WHATSAPP}?text=${encodeURIComponent('Hi, I want to renew my subscription')}" target="_blank" rel="noopener">RENEW ON WHATSAPP</a></div>`);
+    <a class="btn" style="text-decoration:none;text-align:center" href="https://wa.me/${WHATSAPP}?text=${encodeURIComponent('Hi, I want to renew my subscription')}" target="_blank" rel="noopener">RENEW ON WHATSAPP</a>
+    <button class="btn ghost" data-a="pkg.open" dir="rtl">الباقة والشروط</button></div>`);
 }
 ACT['me.resume'] = async (ds, el) => {
   el.disabled = true;
@@ -1415,7 +1420,8 @@ function renderTHome() {
       <button data-a="me.tabWork">WORKOUT ${dot(!wk ? 'red' : wdone.done === wdone.total ? 'green' : wdone.done ? 'amber' : 'red')}</button></div>
     <div class="logo" style="margin-top:50px">HAJIME</div>
     <p class="center" style="font-size:19px;font-weight:800">Welcome ${esc((A.me.name || '').split(' ')[0] || '')}</p>
-    ${wk ? '' : '<p class="center muted">Your program isn’t ready yet. Your coach will publish it soon.</p>'}`);
+    ${wk ? '' : '<p class="center muted">Your program isn’t ready yet. Your coach will publish it soon.</p>'}
+    <button class="btn ghost" data-a="pkg.open" dir="rtl" style="margin-top:28px">الباقة والشروط</button>`);
 }
 ACT['me.start'] = () => ACT['me.tabWork']();
 ACT['me.home'] = () => { T.ui.screen = 'home'; renderTHome(); };
@@ -1800,7 +1806,7 @@ function renderCheck() {
     <div class="lblrow"><span class="lbl">${day === today() ? 'TODAY' : esc(day)}</span>
       <button class="q" data-a="me.tip" data-t="top">؟</button></div>
     <div class="dayrow">
-      <button class="sq" data-a="me.dayStep" data-v="-1">‹</button>
+      <button class="sq" data-a="me.dayStep" data-v="-1" ${!inSub(addDays(day, -1)) ? 'disabled' : ''}>‹</button>
       <button class="daybtn ${st}" data-a="me.cal">${day === today() ? 'TODAY · ' + esc(day.slice(5)) : esc(day)}</button>
       <button class="sq" data-a="me.dayStep" data-v="1" ${day >= today() ? 'disabled' : ''}>›</button></div>
 
@@ -1830,17 +1836,23 @@ INP['me.draftSteps'] = (el) => draft({ steps_other: el.value.trim() });
 INP['me.draftNote'] = (el) => draft({ note: el.value });
 ACT['me.dayStep'] = (ds) => {
   const d = addDays(T.ui.day0 || today(), +ds.v);
-  if (d > today()) return;
+  if (d > today() || !inSub(d)) return;
   T.ui.day0 = d;
   T.ui.draft = null;
   renderCheck();
 };
+function inSub(d) {
+  if (A.me.start_date && d < A.me.start_date) return false;
+  if (A.me.end_date && d > A.me.end_date) return false;
+  return true;
+}
 ACT['me.cal'] = () => {
   const day = T.ui.day0 || today();
   const start = weekStart(addDays(day, -21));
   let cells = ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((h) => `<div class="hd">${h}</div>`).join('');
   for (let i = 0; i < 28; i++) {
     const d = addDays(start, i);
+    if (!inSub(d)) { cells += '<div></div>'; continue; }
     cells += `<button class="${checkState(d)}" data-a="me.calPick" data-d="${d}" ${d > today() ? 'disabled' : ''}>${+d.slice(8)}</button>`;
   }
   openModal(`<h3>Pick a day</h3><div class="cal">${cells}</div>
@@ -1887,6 +1899,59 @@ ACT['me.checkSave'] = () => {
 };
 
 /* ======================================================================
+   THE PACKAGE: shown inside the app, on the sign-in page and to the trainee
+   ====================================================================== */
+const PKG_FEATURES = [
+  'تطوير نقاط الضعف وبناء أفضل جدول يناسب أسلوب حياتك',
+  'متابعة التكنيك: ترسل فيديو أدائك ويوصلك التصحيح',
+  'حساب السعرات والماكروز حسب هدفك ومستواك',
+  'تحديد الكارديو والخطوات اليومية',
+  'تطبيق خاص فيك، فيه جدولك وتسجل أوزانك فيه، وتشوف أداءك بالأسبوع الماضي بكل تمرين',
+  'تسجيل يومي لوزنك ونومك وخطواتك وسعراتك، ويوصلني تقريرك أول بأول',
+  'متابعة أسبوعية'
+];
+const PKG_TERMS = [
+  'الجدول والنظام خدمة مقدمة لك أنت فقط، ومحدودة بمدة الاشتراك. يمنع مشاركته مع شخص آخر أو استعماله بعد انتهاء المدة.',
+  'رابط تطبيق التمارين وكل ما بداخله ملك فكري خاص بي. يمنع مشاركة الرابط أو نسخ محتواه أو تصويره لأي شخص آخر، ويتوقف وصولك له بانتهاء الاشتراك.',
+  'الجداول مبنية على التمرين بالنادي. ما أقدّم حاليًا جداول منزلية، عشان أضمن لك نفس مستوى النتيجة.',
+  'الدفع مقدمًا عن طريق تحويل مباشر، والاشتراك يبدأ من تسليم جدولك.',
+  'الاشتراك غير قابل للاسترجاع بعد تسليم الجدول.',
+  'تسجيل أوزانك بالتطبيق شرط للاستمرار — أسبوعان بدون تسجيل يوقف الاشتراك.',
+  'المتابعة بيوم ثابت من الأسبوع، وترسل بياناتك قبله بيوم. المتأخر يدخل بمتابعة الأسبوع الجاي.',
+  'النتيجة تعتمد على التزامك بالجدول والنظام، وأنا مسؤول عن التخطيط والمتابعة لا أكثر.',
+  'الجدول والنظام الغذائي ليست استشارة طبية. لو عندك إصابة أو حالة صحية، راجع مختصًا قبل البداية.'
+];
+function pkgHtml(withJoin) {
+  return `<div dir="rtl" style="text-align:right">
+    <div class="ocard"><div class="orow"><span class="otitle">التدريب الشخصي</span>
+      <span class="otitle big" style="font-size:22px">300 <span style="font-size:13px;color:var(--muted)">ريال / شهر</span></span></div>
+      <p class="muted" style="margin:0">جدول مبني على أسلوب حياتك، سعرات تناسب هدفك، وتطور تشوفه كل أسبوع.</p>
+      ${PKG_FEATURES.map((f) => `<div class="sumline"><span>• ${esc(f)}</span></div>`).join('')}</div>
+    <div class="box"><div class="lbl" style="margin-top:0">ليش تشترك مع مدرب شخصي؟</div>
+      <p class="muted">المدرب يشوف جسمك من منظور ثاني، ويلاحظ أشياء أنت ما تشوفها. يريحك من التفكير: هل أنت ماشي صح ولا لا؟ وخبرته بالتعامل مع أنواع أجسام مختلفة تختصر عليك الطريق، وهو مصدر ثقة يخليك مستمر بالأوقات الصعبة من الدايت.</p></div>
+    <div class="box"><div class="lbl" style="margin-top:0">الشروط</div>
+      ${PKG_TERMS.map((t) => `<div class="sumline" style="padding:6px 0"><span>• ${esc(t)}</span></div>`).join('')}</div>
+    ${withJoin ? '<button class="btn" data-a="pkg.join">عبّي الاستبيان وابدأ</button>' : ''}
+    <a class="btn ghost" style="text-decoration:none;text-align:center" href="https://wa.me/${WHATSAPP}" target="_blank" rel="noopener">تواصل معي على واتساب</a>
+    <button class="btn ghost" data-a="pkg.close">رجوع</button></div>`;
+}
+ACT['pkg.open'] = () => {
+  A.pkgBack = A.me && A.me.role === 'trainee' ? 'me' : 'login';
+  hdr({ title: 'الباقة' });
+  main(pkgHtml(!A.me));
+};
+ACT['pkg.close'] = () => {
+  if (A.pkgBack === 'me') { T.ui.screen = 'home'; return renderTHome(); }
+  if (/(\?|&)join\b/.test(location.search)) return renderJoin();
+  renderLogin();
+};
+ACT['pkg.join'] = () => {
+  if (!/(\?|&)join\b/.test(location.search)) history.replaceState({}, '', location.pathname + '?join');
+  A.join = A.join || {};
+  renderJoin();
+};
+
+/* ======================================================================
    JOIN: the questionnaire that creates the account
    ====================================================================== */
 const JOIN_Q = [
@@ -1926,6 +1991,7 @@ function renderJoin(err) {
       <span class="muted">أوافق على شروط الاشتراك</span></label>
     <div class="err" id="jnErr">${esc(err || '')}</div>
     <button class="btn" data-a="join.go">إنشاء الحساب</button>
+    <button class="btn ghost" data-a="pkg.open">الباقة والشروط</button>
     <button class="btn ghost" data-a="join.login">عندي حساب</button>`);
 }
 INP['join.f'] = (el) => { A.join[el.dataset.k] = el.value; };
